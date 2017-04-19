@@ -459,8 +459,8 @@ void MainWindow::slotShowScan()
             //fill initstate from subscribed detection topic
             //=====================================
             QVector<VehicleState> initstate;
-            //initview->getInitState(initstate);
-            getInitStateFromTopic(initstate);
+            initview->getInitState(initstate);
+            //getInitStateFromTopic(initstate);
             vehicletracker->addTrackerData(curscan,initstate);
         }
         curscan=scanlist[0].second;
