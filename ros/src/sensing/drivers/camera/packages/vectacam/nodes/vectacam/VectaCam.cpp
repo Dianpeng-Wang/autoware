@@ -14,19 +14,21 @@ VectaCam::VectaCam(unsigned int in_configuration_port, unsigned int in_data_port
 	this->image_height_ 		= VECTACAM_IMG_HEIGHT;
 	this->image_buffer_ 		= new char[image_width_ * 3 * image_height_];
 	this->parameter_file_ 		= in_parameter_file;
-	_initialize_camera(configuration_port_, data_port_, parameter_file_);
+	camera_ready_ = _initialize_camera(configuration_port_, data_port_);
 }
 
-void VectaCam::_parse_parameter_file(std::string in_parameter_file, std::vector<VectaCamCommand>& out_commands)
+bool VectaCam::_parse_parameter_file(std::vector<VectaCamCommand>& out_commands)
 {
 	std::string line;
 	std::ifstream config_file (parameter_file_);
 	std::string delimiter = ":";
+	int i=0;
 	out_commands.clear();
+	std::cout << "Opening file:" << parameter_file_ << std::endl;
 	if (!config_file.is_open())
 	{
-		std::cout << "Unable to open file:" << parameter_file_;
-		return;
+		std::cout << "Unable to open file:" << parameter_file_ << std::endl;
+		return false;
 	}
 
 	while ( getline (config_file,line) )
@@ -44,11 +46,14 @@ void VectaCam::_parse_parameter_file(std::string in_parameter_file, std::vector<
 		}
 		else
 			std::cout << "Unrecognized command in configuration file: " << parameter_file_ << std::endl;
+		i++;
 	}
 	config_file.close();
+	std::cout << "Read " << i << " lines"<< std::endl;
+	return true;
 }
 
-void VectaCam::_send_commands_to_camera(unsigned int in_port, std::vector<VectaCamCommand> in_commands)
+bool VectaCam::_send_commands_to_camera(unsigned int in_port, std::vector<VectaCamCommand> in_commands)
 {
 
 	int socket_descriptor;
@@ -56,7 +61,7 @@ void VectaCam::_send_commands_to_camera(unsigned int in_port, std::vector<VectaC
 	if ((socket_descriptor=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
 	{
 		std::cout << "Problem creating socket\n";
-		return;
+		return false;
 	}
 	memset((char *) &socket_address, 0, sizeof(socket_address));
 	socket_address.sin_family = AF_INET;
@@ -64,7 +69,7 @@ void VectaCam::_send_commands_to_camera(unsigned int in_port, std::vector<VectaC
 	if (inet_aton("10.0.0.1", &socket_address.sin_addr)==0)
 	{
 		std::cout << "Invalid IP address" << std::endl;
-		return;
+		return false;
 	}
 	for (unsigned int i=0; i< in_commands.size(); i++)
 	{
@@ -83,9 +88,10 @@ void VectaCam::_send_commands_to_camera(unsigned int in_port, std::vector<VectaC
 						(int)current_command.command_data << std::endl;
 		usleep(50000);
 	}
+	return true;
 }
 
-void VectaCam::_enable_camera(unsigned int in_port, bool in_enable)
+bool VectaCam::_enable_camera(unsigned int in_port, bool in_enable)
 {
 	unsigned char camonoff = in_enable ? 0xff : 0x00;
 	unsigned char enable_command[] =	{0x00, 0x00, // upldest = 0
@@ -116,7 +122,7 @@ void VectaCam::_enable_camera(unsigned int in_port, bool in_enable)
 	if ((socket_descriptor=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
 	{
 		std::cout << "Problem creating socket\n";
-		return;
+		return false;
 	}
 	memset((char *) &socket_address, 0, sizeof(socket_address));
 	socket_address.sin_family = AF_INET;
@@ -124,29 +130,40 @@ void VectaCam::_enable_camera(unsigned int in_port, bool in_enable)
 	if (inet_aton(VECTACAM_CAMERA_IP, &socket_address.sin_addr)==0)
 	{
 		std::cout << "Invalid IP address" << std::endl;
-		return;
+		return false;
 	}
 	if (sendto(socket_descriptor, enable_command, sizeof(enable_command), 0, reinterpret_cast<sockaddr *>(&socket_address), sizeof(socket_address)) < 0)
 	{
 		std::cout << "Could not send the enable command to the camera socket" << std::endl;
+		return false;
 	}
+	return true;
 }
 
-void VectaCam::_initialize_camera(unsigned int in_configuration_port, unsigned int in_data_port, std::string in_parameter_file)
+bool VectaCam::_initialize_camera(unsigned int in_configuration_port, unsigned int in_data_port)
 {
-	std::cout << "Reading configuration file...";
-	_parse_parameter_file(parameter_file_, camera_commands_);
+	std::cout << "Reading configuration file... " << parameter_file_ << std::endl;
+	if (!_parse_parameter_file(camera_commands_))
+		return false;
 	std::cout << "DONE" << std::endl << "Configuring camera.";
-	_send_commands_to_camera(in_configuration_port, camera_commands_);
+	if (!_send_commands_to_camera(in_configuration_port, camera_commands_))
+		return false;
 	std::cout << "DONE" << std::endl << "Enabling camera.";
-	_enable_camera(in_data_port, true);
+	if (!_enable_camera(in_data_port, true))
+		return false;
 	std::cout << "DONE" << std::endl;
+	return true;
 }
 
 VectaCam::~VectaCam()
 {
 	this->running_=false;
 	delete[] this->image_buffer_;
+}
+
+bool VectaCam::IsReady()
+{
+	return (this->camera_ready_ && this->running_);
 }
 
 void VectaCam::GetImage(cv::Mat& out_image)
@@ -194,12 +211,14 @@ void VectaCam::StartCamera()
 		std::cout << "Error getsockname" << std::endl;
 		return;
 	}
-	this->camera_ready_ = true;
-	this->running_ = true;
-
-	std::cout << "Listening camera in UDP port number " << ntohs(socket_address.sin_port) << std::endl;
-
-	_udp_receive(socket_descriptor);
+	if (this->camera_ready_)
+	{
+		this->running_ = true;
+		std::cout << "Listening camera in UDP port number " << ntohs(socket_address.sin_port) << std::endl;
+		_udp_receive(socket_descriptor);
+	}
+	else
+		std::cout << "Camera Initialization failed" << std::endl;
 }
 
 void VectaCam::_form_image(int in_line_number, char* in_buffer, uint32_t in_packet_offset, uint32_t in_packet_length)

@@ -47,6 +47,7 @@ public:
 	void 			StopCamera();
 	long int		GetFrameNumber();
 	std::string 	GetFps();
+	bool			IsReady();
 
 private:
 	int 			data_port_;
@@ -62,10 +63,10 @@ private:
 	int				image_height_;
 	char			*image_buffer_;
 	void 			_udp_receive(int in_socket_descriptor);
-	void			_initialize_camera(unsigned int in_configuration_port, unsigned int in_data_port, std::string in_parameter_file);
-	void			_parse_parameter_file(std::string in_parameter_file, std::vector<VectaCamCommand>& out_commands);
-	void			_send_commands_to_camera(unsigned int in_port, std::vector<VectaCamCommand> in_commands);
-	void 			_enable_camera(unsigned int in_port, bool in_enable);
+	bool			_initialize_camera(unsigned int in_configuration_port, unsigned int in_data_port);
+	bool			_parse_parameter_file(std::vector<VectaCamCommand>& out_commands);
+	bool			_send_commands_to_camera(unsigned int in_port, std::vector<VectaCamCommand> in_commands);
+	bool 			_enable_camera(unsigned int in_port, bool in_enable);
 	void 			_form_image(int in_line_number, char* in_buffer, uint32_t in_packet_offset, uint32_t in_packet_length);
 	std::string		parameter_file_;
 	std::vector<VectaCamCommand> camera_commands_;
