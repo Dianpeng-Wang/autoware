@@ -13,7 +13,7 @@
     0084
     0093
     -->
-    <arg name="kitti_data" value="$(arg date)_drive_0093_sync" />
+    <arg name="kitti_data" value="$(arg date)_drive_0051_sync" />
 
     <arg name="directory"
          default="$(find kitti_player)/dataset/$(arg date)/$(arg kitti_data)/"
@@ -41,7 +41,7 @@
 	-f frame_rate (fps)
 	-->
     <node name="kitti_player" pkg="kitti_player" type="kitti_player"
-          args= "-d $(arg directory) -f 1 -v -g -i -C -G -T" 
+          args= "-d $(arg directory) -f 0.3 -v -g -i -C -G -T" 
           />
 
 

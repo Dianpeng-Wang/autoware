@@ -439,7 +439,7 @@ void segmentByDistance(const pcl::PointCloud<pcl::PointXYZ>::Ptr in_cloud_ptr,
 	//2 => 30-45 d=1.6
 	//3 => 45-60 d=2.1
 	//4 => >60   d=2.6
-
+	/*
 	std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> cloud_segments_array(5);
 
 	for(unsigned int i=0; i<cloud_segments_array.size(); i++)
@@ -470,7 +470,9 @@ void segmentByDistance(const pcl::PointCloud<pcl::PointXYZ>::Ptr in_cloud_ptr,
 		std::vector<ClusterPtr> local_clusters = clusterAndColor(cloud_segments_array[i], out_cloud_ptr, in_out_boundingbox_array, in_out_centroids, _clustering_thresholds[i]);
 
 		all_clusters.insert(all_clusters.end(), local_clusters.begin(), local_clusters.end());
-	}
+	}*/
+
+	std::vector<ClusterPtr> all_clusters = clusterAndColor(in_cloud_ptr, out_cloud_ptr, in_out_boundingbox_array, in_out_centroids, _clustering_thresholds[0]);
 
 	//Clusters can be merged or checked in here
 	//....
@@ -783,6 +785,8 @@ void velodyne_callback(const sensor_msgs::PointCloud2ConstPtr& in_sensor_cloud)
 
 		cv::TickMeter timer;
 
+		//std::cout << _velodyne_header.stamp << ", ";
+
 		timer.reset();timer.start();
 
 		if (_remove_points_upto > 0.0)
@@ -798,19 +802,20 @@ void velodyne_callback(const sensor_msgs::PointCloud2ConstPtr& in_sensor_cloud)
 		else
 			downsampled_cloud_ptr =removed_points_cloud_ptr;
 
-		//std::cout << " after: " <<downsampled_cloud_ptr->points.size();
-		timer.stop(); //std::cout << "downsampleCloud:" << timer.getTimeMilli() << "ms" << std::endl;
+		//std::cout <<downsampled_cloud_ptr->points.size() << ", ";
+
+		timer.stop(); //std::cout << timer.getTimeMilli() << ", ";
 
 		timer.reset();timer.start();
 		clipCloud(downsampled_cloud_ptr, clipped_cloud_ptr, _clip_min_height, _clip_max_height);
-		timer.stop(); //std::cout << "clipCloud:" << clipped_cloud_ptr->points.size() << "time " << timer.getTimeMilli() << "ms" << std::endl;
+		timer.stop(); //std::cout << timer.getTimeMilli() << ", ";
 
 		timer.reset();timer.start();
 		if(_keep_lanes)
 			keepLanePoints(clipped_cloud_ptr, inlanes_cloud_ptr, _keep_lane_left_distance, _keep_lane_right_distance);
 		else
 			inlanes_cloud_ptr = clipped_cloud_ptr;
-		timer.stop(); //std::cout << "keepLanePoints:" << timer.getTimeMilli() << "ms" << std::endl;
+		timer.stop(); //std::cout << timer.getTimeMilli() << ", ";
 
 		timer.reset();timer.start();
 		if(_remove_ground)
@@ -820,7 +825,7 @@ void velodyne_callback(const sensor_msgs::PointCloud2ConstPtr& in_sensor_cloud)
 		}
 		else
 			nofloor_cloud_ptr = inlanes_cloud_ptr;
-		timer.stop(); //std::cout << "removeFloor:" << timer.getTimeMilli() << "ms" << std::endl;
+		timer.stop(); //std::cout << timer.getTimeMilli() << ", ";
 
 		publishCloud(&_pub_points_lanes_cloud, nofloor_cloud_ptr);
 
@@ -829,15 +834,15 @@ void velodyne_callback(const sensor_msgs::PointCloud2ConstPtr& in_sensor_cloud)
 			differenceNormalsSegmentation(nofloor_cloud_ptr, diffnormals_cloud_ptr);
 		else
 			diffnormals_cloud_ptr = nofloor_cloud_ptr;
-		timer.stop(); //std::cout << "differenceNormalsSegmentation:" << timer.getTimeMilli() << "ms" << std::endl;
+		timer.stop(); //std::cout << timer.getTimeMilli() << ", ";
 
 		timer.reset();timer.start();
 		segmentByDistance(diffnormals_cloud_ptr, colored_clustered_cloud_ptr, boundingbox_array, centroids, cloud_clusters, polygon_array, pictograms_array);
-		//timer.stop(); std::cout << "segmentByDistance:" << timer.getTimeMilli() << "ms" << std::endl;
+		timer.stop(); //std::cout << timer.getTimeMilli() << ", ";
 
 		timer.reset();timer.start();
 		publishColorCloud(&_pub_cluster_cloud, colored_clustered_cloud_ptr);
-		timer.stop(); //std::cout << "publishColorCloud:" << timer.getTimeMilli() << "ms" << std::endl;
+		timer.stop(); //std::cout << timer.getTimeMilli() << ", ";
 		// Publish BB
 		boundingbox_array.header = _velodyne_header;
 
@@ -847,11 +852,11 @@ void velodyne_callback(const sensor_msgs::PointCloud2ConstPtr& in_sensor_cloud)
 		timer.reset();timer.start();
 		publishBoundingBoxArray(&_pub_jsk_boundingboxes, boundingbox_array, _output_frame, _velodyne_header);
 		centroids.header = _velodyne_header;
-		timer.stop(); //std::cout << "publishBoundingBoxArray:" << timer.getTimeMilli() << "ms" << std::endl;
+		timer.stop(); //std::cout << timer.getTimeMilli() << ", ";
 
 		timer.reset();timer.start();
 		publishCentroids(&_centroid_pub, centroids, _output_frame, _velodyne_header);
-		timer.stop(); //std::cout << "publishCentroids:" << timer.getTimeMilli() << "ms" << std::endl;
+		timer.stop(); //std::cout << timer.getTimeMilli() << ", " ;
 
 		_marker_pub.publish(_visualization_marker);
 		_visualization_marker.points.clear();//transform? is it used?
@@ -859,7 +864,7 @@ void velodyne_callback(const sensor_msgs::PointCloud2ConstPtr& in_sensor_cloud)
 
 		timer.reset();timer.start();
 		publishCloudClusters(&_pub_clusters_message, cloud_clusters, _output_frame, _velodyne_header);
-		timer.stop(); //std::cout << "publishCloudClusters:" << timer.getTimeMilli() << "ms" << std::endl << std::endl;
+		timer.stop(); //std::cout << timer.getTimeMilli() << std::endl;
 
 		_using_sensor_cloud = false;
 	}
@@ -1050,5 +1055,7 @@ int main (int argc, char** argv)
 	_visualization_marker.frame_locked = true;
 
 	// Spin
+
+	std::cout << "timestamp, num_points, downsampleCloud, clipCloud, keepLanePoints, removeFloor, differenceNormalsSegmentation, segmentByDistance, publishColorCloud, publishBoundingBoxArray, publishCentroids, publishCloudCluster" << std::endl;
 	ros::spin ();
 }

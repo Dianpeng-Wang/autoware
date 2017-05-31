@@ -20,7 +20,7 @@
 	<arg name="max_boundingbox_side" default="10" />
 	<arg name="cluster_merge_threshold" default="1.5" />
 	
-	<arg name="use_vector_map" default="true" />
+	<arg name="use_vector_map" default="false" />
 	<arg name="vectormap_frame" default="map" />
 	
 	<arg name="output_frame" default="velodyne" />

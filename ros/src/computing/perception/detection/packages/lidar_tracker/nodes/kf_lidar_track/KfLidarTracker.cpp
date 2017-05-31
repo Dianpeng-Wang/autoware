@@ -40,6 +40,9 @@ void KfLidarTracker::Update(const lidar_tracker::CloudClusterArray& in_cloud_clu
 
 	std::vector< CTrack > final_tracks;
 
+	cv::TickMeter timer;
+	timer.start();
+
 	// If no trackers, new track for each detection
 	if (num_tracks == 0)
 	{
@@ -167,7 +170,13 @@ void KfLidarTracker::Update(const lidar_tracker::CloudClusterArray& in_cloud_clu
 		//std::cout << "Trackers added: " << una << std::endl;
 
 		//finally check trackers among them
+		timer.stop(); std::cout << timer.getTimeMilli() << ",";
+
+		timer.reset(); timer.start();
 		CheckAllTrackersForMerge(final_tracks);
+		timer.stop(); std::cout << timer.getTimeMilli() << ",";
+
+		std::cout << final_tracks.size() << std::endl;
 
 		tracks = final_tracks;
 	}//endof matching
