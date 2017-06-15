@@ -41,7 +41,8 @@ VelocitySetInfo::VelocitySetInfo()
     velocity_change_limit_(2.77),
     temporal_waypoints_size_(100),
     closest_waypoint_(-1),
-    set_pose_(false)
+    set_pose_(false),
+    emergency_stop_(false)
 {
 }
 
@@ -101,4 +102,10 @@ void VelocitySetInfo::localizerPoseCallback(const geometry_msgs::PoseStampedCons
 void VelocitySetInfo::closestWaypointCallback(const std_msgs::Int32ConstPtr &msg)
 {
   closest_waypoint_ = msg->data;
+}
+
+void VelocitySetInfo::emergencyStopCallback(const std_msgs::BoolConstPtr &msg)
+{
+  emergency_stop_ = msg->data;
+  ROS_INFO_STREAM("emergency_stop=" << emergency_stop_);
 }

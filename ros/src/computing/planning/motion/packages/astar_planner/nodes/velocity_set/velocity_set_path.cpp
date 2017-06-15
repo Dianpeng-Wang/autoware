@@ -158,7 +158,7 @@ void VelocitySetPath::avoidSuddenDeceleration(double velocity_change_limit, doub
 
 }
 
-void VelocitySetPath::changeWaypointsForStopping(int stop_waypoint, int obstacle_waypoint, int closest_waypoint, double deceleration)
+void VelocitySetPath::changeWaypointsForStopping(int stop_waypoint, int obstacle_waypoint, int closest_waypoint, double deceleration, bool emergency)
 {
   if (closest_waypoint < 0)
     return;
@@ -188,7 +188,13 @@ void VelocitySetPath::changeWaypointsForStopping(int stop_waypoint, int obstacle
   {
     new_waypoints_.waypoints[i].twist.twist.linear.x = 0;
   }
-
+  if (emergency)
+  {
+    for (int i = obstacle_waypoint + 1; checkWaypoint(i, __FUNCTION__); i++)
+    {
+      new_waypoints_.waypoints[i].twist.twist.linear.x = 0;
+    }
+  }
 }
 
 void VelocitySetPath::initializeNewWaypoints()

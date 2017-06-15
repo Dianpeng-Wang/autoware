@@ -35,6 +35,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <std_msgs/Int32.h>
+#include <std_msgs/Bool.h>
 
 #include "runtime_manager/ConfigVelocitySet.h"
 
@@ -57,6 +58,7 @@ class VelocitySetInfo
   geometry_msgs::PoseStamped control_pose_;    // pose of base_link
   int closest_waypoint_;
   bool set_pose_;
+  bool emergency_stop_;
 
  public:
   VelocitySetInfo();
@@ -68,6 +70,7 @@ class VelocitySetInfo
   void controlPoseCallback(const geometry_msgs::PoseStampedConstPtr &msg);
   void localizerPoseCallback(const geometry_msgs::PoseStampedConstPtr &msg);
   void closestWaypointCallback(const std_msgs::Int32ConstPtr &msg);
+  void emergencyStopCallback(const std_msgs::BoolConstPtr &msg);
 
   void clearPoints();
 
@@ -139,6 +142,11 @@ class VelocitySetInfo
   bool getSetPose() const
   {
     return set_pose_;
+  }
+
+  bool getEmergencyStop() const
+  {
+    return emergency_stop_;
   }
 };
 
