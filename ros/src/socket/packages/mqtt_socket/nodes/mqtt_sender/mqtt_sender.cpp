@@ -30,54 +30,43 @@
 
 #include "ros/ros.h"
 #include "std_msgs/String.h"
-
 #include "stdlib.h"
 #include "string.h"
 #include "MQTTClient.h"
 #include "mqtt_socket/mqtt_setting.hpp"
+#include "vehicle_socket/CanInfo.h"
 
 class MqttSender
 {
 public:
   MqttSender();
   ~MqttSender();
-  // static void connlost(void *context, char *cause);
-  static void canInfoCallback(const std_msgs::String::ConstPtr& msg);
+  void canInfoCallback(const vehicle_socket::CanInfoConstPtr &msg);
 
 private:
-  static ros::Subscriber vehicle_info_sub_;
+  ros::Subscriber vehicle_info_sub_;
 	ros::NodeHandle node_handle_;
-  static MQTTClient_message pubmsg_;
-  static MQTTClient_deliveryToken deliveredtoken_;
+  MQTTClient_message pubmsg_;
+  MQTTClient_deliveryToken deliveredtoken_;
 
-  static MQTTClient mqtt_client_;
-  static std::string mqtt_address_;
-  static std::string mqtt_topic_;
-  static std::string mqtt_client_id_;
-  static int mqtt_qos_;
-  static int mqtt_timeout_;
+  MQTTClient mqtt_client_;
+  std::string mqtt_address_;
+  std::string mqtt_topic_;
+  std::string mqtt_client_id_;
+  int mqtt_qos_;
+  int mqtt_timeout_;
 };
-
-ros::Subscriber MqttSender::vehicle_info_sub_;
-MQTTClient_message MqttSender::pubmsg_;
-MQTTClient_deliveryToken MqttSender::deliveredtoken_;
-MQTTClient MqttSender::mqtt_client_;
-std::string MqttSender::mqtt_address_;
-std::string MqttSender::mqtt_topic_;
-std::string MqttSender::mqtt_client_id_;
-int MqttSender::mqtt_qos_;
-int MqttSender::mqtt_timeout_;
 
 MqttSender::MqttSender() :
     node_handle_("~")
 {
   // ROS Publisher
-  vehicle_info_sub_ = node_handle_.subscribe("/mqtt_receiver/remote_vehicle_cmd", 1000, canInfoCallback);
+  vehicle_info_sub_ = node_handle_.subscribe("/can_info", 1000, &MqttSender::canInfoCallback, this);
 
   // MQTT PARAMS
   pubmsg_ = MQTTClient_message_initializer;
   mqtt_address_ = ADDRESS;
-  mqtt_topic_ = std::string(SENDER_TOPIC) + std::string(VEHICLEID) + "/caninfo";
+  mqtt_topic_ = std::string(SENDER_TOPIC) + std::string(VEHICLEID) + "/can_info";
   mqtt_client_id_ = std::string(CLIENTID) + "_" + std::string(VEHICLEID) + "_snd";
   mqtt_qos_ = QOS;
   mqtt_timeout_ = TIMEOUT;
@@ -109,20 +98,72 @@ MqttSender::~MqttSender()
   MQTTClient_destroy(&mqtt_client_);
 }
 
-static void MqttSender::canInfoCallback(const std_msgs::String::ConstPtr& msg)
+void MqttSender::canInfoCallback(const vehicle_socket::CanInfoConstPtr &msg)
 {
-  ROS_INFO("I heard: [%s]", msg->data.c_str());
+  std::ostringstream publish_msg;
 
-  pubmsg_.payload = msg->data.c_str();
-  pubmsg_.payloadlen = strlen(msg->data.c_str());
+  publish_msg << msg->tm << ",";
+  publish_msg << std::to_string(msg->devmode) << ",";
+  publish_msg << std::to_string(msg->drvcontmode) << ",";
+  publish_msg << std::to_string(msg->drvoverridemode) << ",";
+  publish_msg << std::to_string(msg->drvservo) << ",";
+  publish_msg << std::to_string(msg->drivepedal) << ",";
+  publish_msg << std::to_string(msg->targetpedalstr) << ",";
+  publish_msg << std::to_string(msg->inputpedalstr) << ",";
+  publish_msg << std::to_string(msg->targetveloc) << ",";
+  publish_msg << std::to_string(msg->speed) << ",";
+  publish_msg << std::to_string(msg->driveshift) << ",";
+  publish_msg << std::to_string(msg->targetshift) << ",";
+  publish_msg << std::to_string(msg->inputshift) << ",";
+  publish_msg << std::to_string(msg->strmode) << ",";
+  publish_msg << std::to_string(msg->strcontmode) << ",";
+  publish_msg << std::to_string(msg->stroverridemode) << ",";
+  publish_msg << std::to_string(msg->strservo) << ",";
+  publish_msg << std::to_string(msg->targettorque) << ",";
+  publish_msg << std::to_string(msg->torque) << ",";
+  publish_msg << std::to_string(msg->angle) << ",";
+  publish_msg << std::to_string(msg->targetangle) << ",";
+  publish_msg << std::to_string(msg->bbrakepress) << ",";
+  publish_msg << std::to_string(msg->brakepedal) << ",";
+  publish_msg << std::to_string(msg->brtargetpedalstr) << ",";
+  publish_msg << std::to_string(msg->brinputpedalstr) << ",";
+  publish_msg << std::to_string(msg->battery) << ",";
+  publish_msg << std::to_string(msg->voltage) << ",";
+  publish_msg << std::to_string(msg->anp) << ",";
+  publish_msg << std::to_string(msg->battmaxtemparature) << ",";
+  publish_msg << std::to_string(msg->battmintemparature) << ",";
+  publish_msg << std::to_string(msg->maxchgcurrent) << ",";
+  publish_msg << std::to_string(msg->maxdischgcurrent) << ",";
+  publish_msg << std::to_string(msg->sideacc) << ",";
+  publish_msg << std::to_string(msg->accellfromp) << ",";
+  publish_msg << std::to_string(msg->anglefromp) << ",";
+  publish_msg << std::to_string(msg->brakepedalfromp) << ",";
+  publish_msg << std::to_string(msg->speedfr) << ",";
+  publish_msg << std::to_string(msg->speedfl) << ",";
+  publish_msg << std::to_string(msg->speedrr) << ",";
+  publish_msg << std::to_string(msg->speedrl) << ",";
+  publish_msg << std::to_string(msg->velocfromp2) << ",";
+  publish_msg << std::to_string(msg->drvmode) << ",";
+  publish_msg << std::to_string(msg->devpedalstrfromp) << ",";
+  publish_msg << std::to_string(msg->rpm) << ",";
+  publish_msg << std::to_string(msg->velocflfromp) << ",";
+  publish_msg << std::to_string(msg->ev_mode) << ",";
+  publish_msg << std::to_string(msg->temp) << ",";
+  publish_msg << std::to_string(msg->shiftfrmprius) << ",";
+  publish_msg << std::to_string(msg->light) << ",";
+  publish_msg << std::to_string(msg->gaslevel) << ",";
+  publish_msg << std::to_string(msg->door) << ",";
+  publish_msg << std::to_string(msg->cluise);
+
+  // std::ostringstream publish_msg = create_message(msg);
+  std::string publish_msg_str = publish_msg.str();
+
+  pubmsg_.payload = publish_msg_str.c_str();
+  pubmsg_.payloadlen = strlen(publish_msg_str.c_str());
   pubmsg_.qos = mqtt_qos_;
   pubmsg_.retained = 0;
   MQTTClient_publishMessage(mqtt_client_, mqtt_topic_.c_str(), &pubmsg_, &deliveredtoken_);
-  printf("Waiting for up to %d seconds for publication of %s\n"
-          "on topic %s for client with ClientID: %s\n",
-          (int)(mqtt_timeout_/1000), msg->data.c_str(), mqtt_topic_.c_str(), mqtt_client_id_);
   int rc = MQTTClient_waitForCompletion(mqtt_client_, deliveredtoken_, mqtt_timeout_);
-  printf("Message with delivery token %d delivered\n", deliveredtoken_);
 }
 
 int main(int argc, char **argv)

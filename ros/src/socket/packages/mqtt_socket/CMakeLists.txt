@@ -5,6 +5,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   message_generation
+  vehicle_socket
 )
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -O2 -Wall -fpermissive -lpaho-mqtt3c ${CMAKE_CXX_FLAGS}")
@@ -17,6 +18,7 @@ add_message_files(
 generate_messages(
   DEPENDENCIES
   std_msgs
+  vehicle_socket
 )
 
 catkin_package(
@@ -45,4 +47,3 @@ target_link_libraries(select_command paho-mqtt3c ${catkin_LIBRARIES})
 add_dependencies(select_command
   mqtt_socket_generate_messages_cpp
 )
-

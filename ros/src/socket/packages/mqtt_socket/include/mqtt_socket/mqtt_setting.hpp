@@ -8,3 +8,7 @@
 #define PAYLOAD         "Autoware"
 #define QOS             1
 #define TIMEOUT         10000L
+#define AUTO_MODE       1
+#define REMOTE_MODE     2
+#define NORMAL_MODE     0
+#define EMERGENCY_MODE  1

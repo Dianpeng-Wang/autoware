@@ -30,7 +30,7 @@
 
 #include "ros/ros.h"
 #include "std_msgs/String.h"
-#include <mqtt_socket/RemoteCmd.h>
+#include "mqtt_socket/RemoteCmd.h"
 #include <vector>
 #include <boost/algorithm/string.hpp>
 #include <string>
@@ -134,6 +134,14 @@ static void MqttReciever::connlost(void *context, char *cause)
 {
     ROS_INFO("\nConnection lost\n");
     ROS_INFO("     cause: %s\n", cause);
+    mqtt_socket::RemoteCmd msg;
+    msg.accel = 0;
+    msg.brake = 0;
+    msg.steer = 0;
+    msg.gear = 0;
+    msg.mode = AUTO_MODE;
+    msg.emergency = EMERGENCY_MODE;
+    remote_cmd_pub_.publish(msg);
 }
 
 int main(int argc, char **argv)
