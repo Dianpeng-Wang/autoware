@@ -4,12 +4,14 @@ project(mqtt_socket)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
+  message_generation
 )
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -O2 -Wall -fpermissive -lpaho-mqtt3c ${CMAKE_CXX_FLAGS}")
 
 add_message_files(
   FILES
+  RemoteCmd.msg
 )
 
 generate_messages(
@@ -18,7 +20,7 @@ generate_messages(
 )
 
 catkin_package(
-  CATKIN_DEPENDS roscpp std_msgs
+  CATKIN_DEPENDS roscpp std_msgs message_runtime
 )
 
 include_directories(

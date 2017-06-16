@@ -30,7 +30,11 @@
 
 #include "ros/ros.h"
 #include "std_msgs/String.h"
-
+#include <mqtt_socket/RemoteCmd.h>
+#include <vector>
+#include <boost/algorithm/string.hpp>
+#include <string>
+#include <list>
 #include "stdlib.h"
 #include "string.h"
 #include "MQTTClient.h"
@@ -46,20 +50,20 @@ public:
   static void connlost(void *context, char *cause);
 
 private:
-  static ros::Publisher vehicle_cmd_pub_;
+  static ros::Publisher remote_cmd_pub_;
   static MQTTClient_deliveryToken deliveredtoken_;
 	ros::NodeHandle node_handle_;
   MQTTClient mqtt_client_;
 };
 
-ros::Publisher MqttReciever::vehicle_cmd_pub_;
+ros::Publisher MqttReciever::remote_cmd_pub_;
 MQTTClient_deliveryToken MqttReciever::deliveredtoken_;
 
 MqttReciever::MqttReciever() :
     node_handle_("~")
 {
   // ROS Publisher
-  vehicle_cmd_pub_ = node_handle_.advertise<std_msgs::String>("remote_vehicle_cmd", 1000);
+  remote_cmd_pub_ = node_handle_.advertise<mqtt_socket::RemoteCmd>("/remote_cmd", 1000);
 
   // MQTT PARAMS
   std::string mqtt_address = ADDRESS;
@@ -107,11 +111,19 @@ static void MqttReciever::delivered(void *context, MQTTClient_deliveryToken dt)
 
 static int MqttReciever::msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_message *message)
 {
+    std::string delim (",");
     std::string msg_str((char *)message->payload, message->payloadlen);
-    std_msgs::String msg;
-    msg.data = msg_str.c_str();
+    std::vector<std::string> cmds;
+    boost::algorithm::split(cmds, msg_str, boost::is_any_of(","));
 
-    vehicle_cmd_pub_.publish(msg);
+    mqtt_socket::RemoteCmd msg;
+    msg.accel = std::stoi(cmds[0]);
+    msg.brake = std::stoi(cmds[1]);
+    msg.steer = std::stoi(cmds[2]);
+    msg.gear = std::stoi(cmds[3]);
+    msg.mode = std::stoi(cmds[4]);
+    msg.emergency = std::stoi(cmds[5]);
+    remote_cmd_pub_.publish(msg);
 
     MQTTClient_freeMessage(&message);
     MQTTClient_free(topicName);
