@@ -39,3 +39,10 @@ target_link_libraries(mqtt_sender paho-mqtt3c ${catkin_LIBRARIES})
 add_dependencies(mqtt_sender
   mqtt_socket_generate_messages_cpp
 )
+
+add_executable(select_command nodes/select_command/select_command.cpp)
+target_link_libraries(select_command paho-mqtt3c ${catkin_LIBRARIES})
+add_dependencies(select_command
+  mqtt_socket_generate_messages_cpp
+)
+
