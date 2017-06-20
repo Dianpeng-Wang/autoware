@@ -12,3 +12,6 @@
 #define REMOTE_MODE     2
 #define NORMAL_MODE     0
 #define EMERGENCY_MODE  1
+#define ACCEL_MAX_VAL   100
+#define BRAKE_MAX_VAL   10000
+#define STEER_MAX_VAL   720

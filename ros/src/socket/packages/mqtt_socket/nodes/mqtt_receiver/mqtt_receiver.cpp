@@ -117,9 +117,9 @@ static int MqttReciever::msgarrvd(void *context, char *topicName, int topicLen, 
     boost::algorithm::split(cmds, msg_str, boost::is_any_of(","));
 
     mqtt_socket_msgs::RemoteCmd msg;
-    msg.accel = std::stoi(cmds[0]);
-    msg.brake = std::stoi(cmds[1]);
-    msg.steer = std::stoi(cmds[2]);
+    msg.accel = std::stof(cmds[0]) * ACCEL_MAX_VAL;
+    msg.brake = std::stof(cmds[1]) * BRAKE_MAX_VAL;
+    msg.steer = std::stof(cmds[2]) * STEER_MAX_VAL;
     msg.gear = std::stoi(cmds[3]);
     msg.mode = std::stoi(cmds[4]);
     msg.emergency = std::stoi(cmds[5]);
