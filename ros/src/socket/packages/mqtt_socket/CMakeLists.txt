@@ -13,6 +13,7 @@ set(CMAKE_CXX_FLAGS "-std=c++11 -O2 -Wall -fpermissive -lpaho-mqtt3c ${CMAKE_CXX
 add_message_files(
   FILES
   RemoteCmd.msg
+  SelectCmd.msg
 )
 
 generate_messages(
