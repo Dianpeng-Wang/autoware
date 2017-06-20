@@ -29,13 +29,7 @@
 */
 
 #include <ros/ros.h>
-#include <geometry_msgs/TwistStamped.h>
-#include <tablet_socket_msgs/mode_cmd.h>
-#include <tablet_socket_msgs/gear_cmd.h>
-#include <runtime_manager/accel_cmd.h>
-#include <runtime_manager/brake_cmd.h>
-#include <runtime_manager/steer_cmd.h>
-#include <waypoint_follower_msgs/ControlCommandStamped.h>
+#include "mqtt_socket_msgs/SelectCmd.h"
 
 #include <iostream>
 #include <string>
@@ -76,45 +70,17 @@ void CommandData::reset()
 
 static CommandData command_data;
 
-static void twistCMDCallback(const geometry_msgs::TwistStamped& msg)
+static void selectCMDCallback(const mqtt_socket_msgs::SelectCmd& msg)
 {
-  command_data.linear_x = msg.twist.linear.x;
-  command_data.angular_z = msg.twist.angular.z;
-}
-
-static void modeCMDCallback(const tablet_socket_msgs::mode_cmd& mode)
-{
-  if(mode.mode == -1 || mode.mode == 0){
-    command_data.reset();
-  }
-
-  command_data.modeValue = mode.mode;
-}
-
-static void gearCMDCallback(const tablet_socket_msgs::gear_cmd& gear)
-{
-  command_data.gearValue = gear.gear;
-}
-
-static void accellCMDCallback(const runtime_manager::accel_cmd& accell)
-{
-  command_data.accellValue = accell.accel;
-}
-
-static void steerCMDCallback(const runtime_manager::steer_cmd& steer)
-{
-  command_data.steerValue = steer.steer;
-}
-
-static void brakeCMDCallback(const runtime_manager::brake_cmd &brake)
-{
-  command_data.brakeValue = brake.brake;
-}
-
-static void ctrlCMDCallback(const waypoint_follower_msgs::ControlCommandStamped& msg)
-{
-  command_data.linear_velocity = msg.cmd.linear_velocity;
-  command_data.steering_angle = msg.cmd.steering_angle;
+  command_data.linear_x = msg.linear_x;
+  command_data.angular_z = msg.angular_z;
+  command_data.modeValue = msg.mode;
+  command_data.gearValue = msg.gear;
+  command_data.accellValue = msg.accel;
+  command_data.steerValue = msg.steer;
+  command_data.brakeValue = msg.brake;
+  command_data.linear_velocity = msg.linear_velocity;
+  command_data.steering_angle = msg.steering_angle;
 }
 
 static void *sendCommand(void *arg)
@@ -217,14 +183,7 @@ int main(int argc, char **argv)
   ros::NodeHandle nh;
 
   std::cout << "vehicle sender" << std::endl;
-  ros::Subscriber sub[7];
-  sub[0] = nh.subscribe("/twist_cmd", 1, twistCMDCallback);
-  sub[1] = nh.subscribe("/mode_cmd",  1, modeCMDCallback);
-  sub[2] = nh.subscribe("/gear_cmd",  1, gearCMDCallback);
-  sub[3] = nh.subscribe("/accel_cmd", 1, accellCMDCallback);
-  sub[4] = nh.subscribe("/steer_cmd", 1, steerCMDCallback);
-  sub[5] = nh.subscribe("/brake_cmd", 1, brakeCMDCallback);
-  sub[6] = nh.subscribe("/ctrl_cmd", 1, ctrlCMDCallback);
+  ros::Subscriber sub = nh.subscribe("/select_cmd", 1, selectCMDCallback);
 
   command_data.reset();
 
