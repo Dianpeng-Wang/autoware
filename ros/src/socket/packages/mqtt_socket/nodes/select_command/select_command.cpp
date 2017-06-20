@@ -37,8 +37,8 @@
 #include <std_msgs/Bool.h>
 #include <geometry_msgs/TwistStamped.h>
 
-#include "mqtt_socket/RemoteCmd.h"
-#include "mqtt_socket/SelectCmd.h"
+#include "mqtt_socket_msgs/RemoteCmd.h"
+#include "mqtt_socket_msgs/SelectCmd.h"
 #include "tablet_socket_msgs/mode_cmd.h"
 #include "tablet_socket_msgs/gear_cmd.h"
 #include "runtime_manager/accel_cmd.h"
@@ -48,9 +48,8 @@
 
 class SelectCommand
 {
-  using remote_msgs_t = mqtt_socket::RemoteCmd;
-  //using auto_msgs_t = mqtt_socket::RemoteCmd;  //TODO fix message type
-  using select_msgs_t = mqtt_socket::SelectCmd;
+  using remote_msgs_t = mqtt_socket_msgs::RemoteCmd;
+  using select_msgs_t = mqtt_socket_msgs::SelectCmd;
 
   public:
     SelectCommand(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh);

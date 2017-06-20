@@ -30,7 +30,7 @@
 
 #include "ros/ros.h"
 #include "std_msgs/String.h"
-#include "mqtt_socket/RemoteCmd.h"
+#include "mqtt_socket_msgs/RemoteCmd.h"
 #include <vector>
 #include <boost/algorithm/string.hpp>
 #include <string>
@@ -63,7 +63,7 @@ MqttReciever::MqttReciever() :
     node_handle_("~")
 {
   // ROS Publisher
-  remote_cmd_pub_ = node_handle_.advertise<mqtt_socket::RemoteCmd>("/remote_cmd", 1000);
+  remote_cmd_pub_ = node_handle_.advertise<mqtt_socket_msgs::RemoteCmd>("/remote_cmd", 1000);
 
   // MQTT PARAMS
   std::string mqtt_address = ADDRESS;
@@ -116,7 +116,7 @@ static int MqttReciever::msgarrvd(void *context, char *topicName, int topicLen, 
     std::vector<std::string> cmds;
     boost::algorithm::split(cmds, msg_str, boost::is_any_of(","));
 
-    mqtt_socket::RemoteCmd msg;
+    mqtt_socket_msgs::RemoteCmd msg;
     msg.accel = std::stoi(cmds[0]);
     msg.brake = std::stoi(cmds[1]);
     msg.steer = std::stoi(cmds[2]);
@@ -134,7 +134,7 @@ static void MqttReciever::connlost(void *context, char *cause)
 {
     ROS_INFO("\nConnection lost\n");
     ROS_INFO("     cause: %s\n", cause);
-    mqtt_socket::RemoteCmd msg;
+    mqtt_socket_msgs::RemoteCmd msg;
     msg.accel = 0;
     msg.brake = 0;
     msg.steer = 0;
