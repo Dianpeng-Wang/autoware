@@ -68,7 +68,7 @@ class SelectCommand
     void reset_select_cmd_msg();
 
     ros::NodeHandle nh_;
-    ros::NodeHandle private_nh_; 
+    ros::NodeHandle private_nh_;
     ros::Publisher emergency_stop_pub_;
     ros::Publisher select_cmd_pub_;
     ros::Subscriber remote_cmd_sub_;
@@ -134,7 +134,7 @@ void SelectCommand::watchdog_timer()
   {
     ros::Time now_time = ros::Time::now();
 
-    if(now_time - remote_cmd_time_ >  timeout_period_ 
+    if(now_time - remote_cmd_time_ >  timeout_period_
        || emergency_stop_msg_.data == true)
     {
         command_mode_ = CommandMode::AUTO;
@@ -162,9 +162,11 @@ void SelectCommand::remote_cmd_callback(const remote_msgs_t::ConstPtr& input_msg
     select_cmd_msg_.header.frame_id = input_msg->header.frame_id;
     select_cmd_msg_.header.stamp = input_msg->header.stamp;
     select_cmd_msg_.header.seq++;
-    select_cmd_msg_.accel = input_msg->accel;
-    select_cmd_msg_.brake = input_msg->brake;
-    select_cmd_msg_.steer = input_msg->steer;
+    select_cmd_msg_.linear_x = input_msg->accel;
+    select_cmd_msg_.angular_z = input_msg->steer;
+    // select_cmd_msg_.accel = input_msg->accel;
+    // select_cmd_msg_.brake = input_msg->brake;
+    // select_cmd_msg_.steer = input_msg->steer;
     select_cmd_msg_.gear = input_msg->gear;
     select_cmd_msg_.mode = input_msg->mode;
     select_cmd_msg_.emergency = input_msg->emergency;
@@ -196,7 +198,7 @@ void SelectCommand::auto_cmd_mode_cmd_callback(const tablet_socket_msgs::mode_cm
     select_cmd_msg_.header.frame_id = input_msg->header.frame_id;
     select_cmd_msg_.header.stamp = input_msg->header.stamp;
     select_cmd_msg_.header.seq++;
-    select_cmd_msg_.mode = input_msg->mode; 
+    select_cmd_msg_.mode = input_msg->mode;
     select_cmd_pub_.publish(select_cmd_msg_);
   }
 }
@@ -271,5 +273,3 @@ int main(int argc, char** argv)
   ros::spin();
   return 0;
 }
-
-
