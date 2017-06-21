@@ -1,4 +1,5 @@
 <launch>
   <node pkg="vehicle_socket" type="vehicle_receiver" name="vehicle_receiver" />
   <node pkg="vehicle_socket" type="vehicle_sender" name="vehicle_sender" />
+  <node pkg="mqtt_socket" type="select_command" name="select_command" />
 </launch>

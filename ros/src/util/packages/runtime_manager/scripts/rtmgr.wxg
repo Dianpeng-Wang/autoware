@@ -1243,6 +1243,17 @@
                                                     </events>
                                                 </object>
                                             </object>
+                                            <object class="sizeritem">
+                                                <flag>wxALL|wxALIGN_CENTER_VERTICAL</flag>
+                                                <border>4</border>
+                                                <option>1</option>
+                                                <object class="wxToggleButton" name="button_remote_control_interface" base="EditToggleButton">
+                                                    <label>Remote Control</label>
+                                                    <events>
+                                                        <handler event="EVT_TOGGLEBUTTON">OnLaunchKill</handler>
+                                                    </events>
+                                                </object>
+                                            </object>
                                         </object>
                                     </object>
                                     <object class="sizeritem">
