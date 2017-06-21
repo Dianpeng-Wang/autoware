@@ -80,7 +80,7 @@ class SelectCommand
     ros::Duration timeout_period_;
 
     std::thread watchdog_timer_thread_;
-    enum class CommandMode{AUTO=1, REMOTE} command_mode_;
+    enum class CommandMode{AUTO=3, REMOTE=4} command_mode_;
 };
 
 SelectCommand::SelectCommand(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh) :
@@ -138,8 +138,8 @@ void SelectCommand::watchdog_timer()
        || emergency_stop_msg_.data == true)
     {
         command_mode_ = CommandMode::AUTO;
-        emergency_stop_msg_.data = true;
-        emergency_stop_pub_.publish(emergency_stop_msg_);
+    //    emergency_stop_msg_.data = true;
+    //    emergency_stop_pub_.publish(emergency_stop_msg_);
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -163,14 +163,23 @@ void SelectCommand::remote_cmd_callback(const remote_msgs_t::ConstPtr& input_msg
     select_cmd_msg_.header.stamp = input_msg->header.stamp;
     select_cmd_msg_.header.seq++;
     select_cmd_msg_.linear_x = input_msg->accel;
-    select_cmd_msg_.angular_z = input_msg->steer;
+    //select_cmd_msg_.angular_z = input_msg->steer;
+    select_cmd_msg_.steering_angle = input_msg->steer;
     // select_cmd_msg_.accel = input_msg->accel;
     // select_cmd_msg_.brake = input_msg->brake;
     // select_cmd_msg_.steer = input_msg->steer;
-    select_cmd_msg_.gear = input_msg->gear;
-    select_cmd_msg_.mode = input_msg->mode;
+    //select_cmd_msg_.gear = input_msg->gear;
+    select_cmd_msg_.gear = 0;
+    // select_cmd_msg_.mode = input_msg->mode;
+    select_cmd_msg_.mode = 0;
     select_cmd_msg_.emergency = input_msg->emergency;
     select_cmd_pub_.publish(select_cmd_msg_);
+  }
+  if(select_cmd_msg_.emergency == 1)
+  {
+    emergency_stop_msg_.data = true;
+    emergency_stop_pub_.publish(emergency_stop_msg_);
+    std::cout << "emergency_stop!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
   }
 }
 

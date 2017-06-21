@@ -6,12 +6,15 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   vehicle_socket
   mqtt_socket_msgs
+  runtime_manager
+  tablet_socket_msgs
+  waypoint_follower_msgs
 )
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -O2 -Wall -fpermissive -lpaho-mqtt3c ${CMAKE_CXX_FLAGS}")
 
 catkin_package(
-  CATKIN_DEPENDS roscpp std_msgs mqtt_socket_msgs
+  CATKIN_DEPENDS roscpp std_msgs mqtt_socket_msgs runtime_manager tablet_socket_msgs waypoint_follower_msgs
 )
 
 include_directories(
@@ -35,4 +38,7 @@ add_executable(select_command nodes/select_command/select_command.cpp)
 target_link_libraries(select_command paho-mqtt3c ${catkin_LIBRARIES})
 add_dependencies(select_command
   mqtt_socket_msgs_generate_messages_cpp
+  runtime_manager_generate_messages_cpp
+  tablet_socket_msgs_generate_messages_cpp
+  waypoint_follower_msgs_generate_messages_cpp
 )

@@ -14,4 +14,4 @@
 #define EMERGENCY_MODE  1
 #define ACCEL_MAX_VAL   5 // km/h
 #define BRAKE_MAX_VAL   10000
-#define STEER_MAX_VAL   0.5 // rad/s
+#define STEER_MAX_VAL   0.6
