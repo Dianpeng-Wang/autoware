@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">AutowareDrive</string>
+
+    <!-- Strings related to login -->
+    <string name="prompt_address">Adress</string>
+    <string name="prompt_port">Port</string>
+    <string name="prompt_vehicle_id">Vehicle ID</string>
+    <string name="action_start">Start</string>
+    <string name="action_sign_in_short">Sign in</string>
+    <string name="error_invalid_address">This address is invalid</string>
+    <string name="error_invalid_port">This port is invalid</string>
+    <string name="error_field_required">This field is required</string>
+    <string name="permission_rationale">"Contacts permissions are needed for providing email
+        completions."
+    </string>
+    <string name="accel_label">Accele</string>
+    <string name="brake_label">Brake</string>
+    <string name="accel_brake_label">Accele/Brake</string>
+    <string name="steering_label">Steering</string>
+</resources>
