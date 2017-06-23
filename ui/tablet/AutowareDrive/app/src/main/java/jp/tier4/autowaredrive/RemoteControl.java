@@ -1,6 +1,9 @@
 package jp.tier4.autowaredrive;
 
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
 import android.graphics.Point;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
@@ -11,6 +14,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CompoundButton;
+import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.ToggleButton;
@@ -37,6 +41,7 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
     static private int AUTO_MODE = 3;
     static private int EMERGENCY_MODE = 1;
     static private int NONEMERGENCY_MODE = 0;
+    static private int STEERING_MAX_VAL = 720;
 
     private int mVehicleId;
     /*** MQTT ***/
@@ -50,10 +55,17 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
 
     /*** UI ***/
     private ProgressBar accelBar, brakeBar;
-    private Button steeringButton, accelBrakeButton;
+    private Button accelBrakeButton;
     private ToggleButton remoteControlButton, emergencyButton;
     private int displayHeight, displayWidth;
     private SeekBar steeringBar;
+
+    /*** Steering ***/
+    private ImageButton steeringImageButton;
+    private Bitmap steeringBitmap;
+    private int steeringBitmapWidth;
+    private int steeringBitmapHeight;
+    private float currentSteeringAngle = 0;
 
     /*** Control Comand ***/
     private ControlComand mControlComand;
@@ -108,8 +120,7 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
         accelBrakeButton = (Button)this.findViewById(R.id.accel_brake_button);
         accelBrakeButton.setOnTouchListener(this);
 
-        steeringButton = (Button)this.findViewById(R.id.steering_button);
-        steeringButton.setOnTouchListener(this);
+        steeringImageButton = (ImageButton) findViewById(R.id.steering_image_button);
 
         accelBar = (ProgressBar) findViewById(R.id.accel_progressbar);
         accelBar.setMax(100);
@@ -138,6 +149,50 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
         emergencyButton.setOnCheckedChangeListener(this);
 
         mControlComandUploader = new ControlComandUploader(mqttAndroidClient, mqttConnectOptions, mqttTopic);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        int buttonWidth = findViewById(R.id.steering_image_button).getWidth();
+        int buttonHeight = findViewById(R.id.steering_image_button).getHeight();
+
+        setSteeringImageButtonSize(buttonWidth, buttonHeight);
+    }
+
+    public void setSteeringImageButtonSize(int buttonWidth, int buttonHeight) {
+//        steeringBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.steering);
+        Bitmap steeringBitmapRaw = BitmapFactory.decodeResource(getResources(), R.drawable.steering);
+        float ratio = 0;
+        Matrix matrix = new Matrix();
+        if(buttonWidth > buttonHeight) {
+            ratio = (float) buttonHeight / (float)steeringBitmapRaw.getHeight();
+        }
+        else {
+            ratio = (float) buttonWidth / (float)steeringBitmapRaw.getWidth();
+        }
+        matrix.preScale(ratio, ratio);
+
+        steeringBitmap = Bitmap.createBitmap(steeringBitmapRaw, 0, 0, steeringBitmapRaw.getWidth(), steeringBitmapRaw.getHeight(), matrix, true);
+        steeringImageButton.setImageBitmap(steeringBitmap);
+        steeringBitmapWidth = steeringBitmap.getWidth();
+        steeringBitmapHeight = steeringBitmap.getHeight();
+        steeringImageButton.setOnTouchListener(this);
+    }
+
+    public void setSteeringAngle(float angle) {
+        Matrix matrix = new Matrix();
+        matrix.setRotate(angle, steeringBitmapWidth/2, steeringBitmapHeight/2);
+        Bitmap bitmap2 = Bitmap.createBitmap(steeringBitmap, 0, 0, steeringBitmapWidth, steeringBitmapHeight, matrix, true);
+        steeringImageButton.setImageBitmap(bitmap2);
+        currentSteeringAngle = angle;
+    }
+
+    public float getSteeringAngle(float x, float y) {
+        float target_angle = 0;
+        
+        target_angle = currentSteeringAngle + 45;
+        return target_angle;
     }
 
     public int getStatusBarHeight() {
@@ -197,18 +252,23 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
             brakeBar.setProgress(Math.round(mControlComand.brakeCmd * 100));
 
         }
-        // Steering
-        else if(v == steeringButton) {
-            float buttonWidth = (float) (displayWidth * (8.0 / 9.0) * (5.0 / 7.0));
-            mControlComand.steeringCmd = (event.getX() - buttonWidth / 2) / (buttonWidth / 2);
-            Log.i(TAG, "Accel: " + mControlComand.accelCmd + ", Brake: " + mControlComand.brakeCmd + ", Steering: " + mControlComand.steeringCmd);
-
-            if(mControlComand.steeringCmd > 1)
-                mControlComand.steeringCmd = (float) 1.0;
-            else if(mControlComand.steeringCmd < -1.0)
-                mControlComand.steeringCmd = (float) -1.0;
-            steeringBar.setProgress(Math.round(50 + mControlComand.steeringCmd / 2 * 100));
+        else if(v == steeringImageButton) {
+            float touch_angle = getSteeringAngle(event.getX(), event.getY());
+            Log.i(TAG, "Touch " + touch_angle);
+            setSteeringAngle(touch_angle);
         }
+//        // Steering
+//        else if(v == steeringButton) {
+//            float buttonWidth = (float) (displayWidth * (8.0 / 9.0) * (5.0 / 7.0));
+//            mControlComand.steeringCmd = (event.getX() - buttonWidth / 2) / (buttonWidth / 2);
+//            Log.i(TAG, "Accel: " + mControlComand.accelCmd + ", Brake: " + mControlComand.brakeCmd + ", Steering: " + mControlComand.steeringCmd);
+//
+//            if(mControlComand.steeringCmd > 1)
+//                mControlComand.steeringCmd = (float) 1.0;
+//            else if(mControlComand.steeringCmd < -1.0)
+//                mControlComand.steeringCmd = (float) -1.0;
+//            steeringBar.setProgress(Math.round(50 + mControlComand.steeringCmd / 2 * 100));
+//        }
 
         return false;
     }
