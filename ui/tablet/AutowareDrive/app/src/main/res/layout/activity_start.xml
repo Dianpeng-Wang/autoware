@@ -25,7 +25,7 @@
         android:layout_height="match_parent">
 
         <LinearLayout
-            android:id="@+id/email_login_form"
+            android:id="@+id/remote_control_start_form"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
@@ -55,7 +55,7 @@
                     android:layout_height="wrap_content"
                     android:hint="@string/prompt_port"
                     android:imeActionId="@+id/start"
-                    android:imeActionLabel="@string/action_sign_in_short"
+                    android:imeActionLabel="@string/action_start"
                     android:inputType="number"
                     android:maxLines="1"
                     android:singleLine="true" />
@@ -72,7 +72,7 @@
                     android:layout_height="wrap_content"
                     android:hint="@string/prompt_vehicle_id"
                     android:imeActionId="@+id/start"
-                    android:imeActionLabel="@string/action_sign_in_short"
+                    android:imeActionLabel="@string/action_start"
                     android:inputType="number"
                     android:maxLines="1"
                     android:singleLine="true" />

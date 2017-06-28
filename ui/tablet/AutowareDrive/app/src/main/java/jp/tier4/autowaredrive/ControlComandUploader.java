@@ -21,7 +21,7 @@ public class ControlComandUploader extends AsyncTask<Void,Integer,Boolean> {
     private MqttAndroidClient mqttAndroidClient;
     private MqttConnectOptions mqttConnectOptions;
     private String mqttTopic;
-    /*** アップロード周期 (ms) ***/
+    /*** Upload Period (ms) ***/
     private static final int defaultPeriod = 100;
     /*** Control Comand ***/
     private ControlComand mControlComand;
@@ -62,7 +62,7 @@ public class ControlComandUploader extends AsyncTask<Void,Integer,Boolean> {
     }
 
     public void stopLogUpload() {
-        /*** Threadを停止させる ***/
+        /*** Stop Thread ***/
         this.isActive = false;
     }
 
@@ -86,7 +86,7 @@ public class ControlComandUploader extends AsyncTask<Void,Integer,Boolean> {
         return null;
     }
 
-    /*** MQTT Brokerと接続 ***/
+    /*** Connect MQTT Broker ***/
     private void connectMqttBroker() {
         try {
             mqttAndroidClient.connect(mqttConnectOptions, new IMqttActionListener() {

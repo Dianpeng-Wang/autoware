@@ -1,6 +1,7 @@
 package jp.tier4.autowaredrive;
 
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
@@ -28,6 +29,8 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
+import jp.tier4.autowaredrive.ui.CanInfo;
+
 /**
  * Created by yuki.iida on 2017/06/20.
  */
@@ -51,7 +54,8 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
     private String mqttHost;
     private int mqttPort;
     private String mqttBrokerURI;
-    private String mqttTopic;
+    private String mqttPublishTopic;
+    private String mqttSubscribeTopic;
 
     /*** UI ***/
     private ProgressBar accelBar, brakeBar;
@@ -65,10 +69,14 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
     private Bitmap steeringBitmap;
     private int steeringBitmapWidth;
     private int steeringBitmapHeight;
-    private float currentSteeringAngle = 0;
+
+    private float baseTouchPointx = 0;
+    private float baseTouchPointy = 0;
+    private double currentSteeringAngle = 0;
 
     /*** Control Comand ***/
     private ControlComand mControlComand;
+    private CanInfo mCanInfo;
 
     /*** Thread ***/
     ControlComandUploader mControlComandUploader = null;
@@ -78,6 +86,9 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_remote_control);
 
+        mControlComand = ControlComand.getInstance();
+        mCanInfo = CanInfo.getInstance();
+
         Intent intent = getIntent();
         Bundle bundle = intent.getExtras();
         if (bundle != null) {
@@ -85,10 +96,11 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
             this.mqttPort = bundle.getInt("port");
             this.mqttBrokerURI = "tcp://" + mqttHost + ":" + mqttPort;
             this.mVehicleId = bundle.getInt("vehicle_id");
-            this.mqttTopic = TOPIC + mVehicleId + "/remote_cmd";
+            this.mqttPublishTopic = TOPIC + mVehicleId + "/remote_cmd";
+            this.mqttSubscribeTopic = TOPIC + mVehicleId + "/can_info";
             this.mqttId = CLIENTID_HEAD + mVehicleId;
 
-            Log.i("RemoteControl", this.mqttBrokerURI + ", " + this.mqttTopic + ", " + this.mqttId);
+            Log.i("RemoteControl", this.mqttBrokerURI + ", " + this.mqttPublishTopic + ", " + this.mqttId);
         }
 
         mqttAndroidClient = new MqttAndroidClient(this, mqttBrokerURI, mqttId);
@@ -102,7 +114,9 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
 
             @Override
             public void messageArrived(String topic, MqttMessage message) throws Exception {
-                Log.i(TAG, "Message Arrived!: " + topic + ": " + new String(message.getPayload()));
+                String arrivedMessage = new String(message.getPayload());
+                Log.i(TAG, "Message Arrived!: " + topic + ": " + arrivedMessage);
+                mCanInfo.parseCanInfo(arrivedMessage);
             }
 
             @Override
@@ -111,10 +125,8 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
             }
         });
 
-        /*** MQTT Brokerへ接続 ***/
+        /*** Connect MQTT Broker ***/
         connectMqttBroker();
-
-        mControlComand = ControlComand.getInstance();
 
         /*** UI ***/
         accelBrakeButton = (Button)this.findViewById(R.id.accel_brake_button);
@@ -139,7 +151,6 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
         Point size = new Point();
         disp.getSize(size);
         displayWidth = size.x;
-        Log.i(TAG, "Display = " + size.x);
         displayHeight = size.y - getStatusBarHeight();
 
         remoteControlButton = (ToggleButton)findViewById(R.id.remote_control_button);
@@ -148,7 +159,10 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
         emergencyButton = (ToggleButton)findViewById(R.id.emergency_button);
         emergencyButton.setOnCheckedChangeListener(this);
 
-        mControlComandUploader = new ControlComandUploader(mqttAndroidClient, mqttConnectOptions, mqttTopic);
+        mControlComandUploader = new ControlComandUploader(mqttAndroidClient, mqttConnectOptions, mqttPublishTopic);
+
+        setCurrentSteeringAngle(currentSteeringAngle);
+
     }
 
     @Override
@@ -161,7 +175,6 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
     }
 
     public void setSteeringImageButtonSize(int buttonWidth, int buttonHeight) {
-//        steeringBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.steering);
         Bitmap steeringBitmapRaw = BitmapFactory.decodeResource(getResources(), R.drawable.steering);
         float ratio = 0;
         Matrix matrix = new Matrix();
@@ -180,19 +193,29 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
         steeringImageButton.setOnTouchListener(this);
     }
 
-    public void setSteeringAngle(float angle) {
-        Matrix matrix = new Matrix();
-        matrix.setRotate(angle, steeringBitmapWidth/2, steeringBitmapHeight/2);
-        Bitmap bitmap2 = Bitmap.createBitmap(steeringBitmap, 0, 0, steeringBitmapWidth, steeringBitmapHeight, matrix, true);
-        steeringImageButton.setImageBitmap(bitmap2);
-        currentSteeringAngle = angle;
+    public void setCurrentSteeringAngle(double angle) {
+        try{
+            Matrix matrix = new Matrix();
+            matrix.setRotate((float)angle, steeringBitmapWidth/2, steeringBitmapHeight/2);
+            Bitmap bitmap2 = Bitmap.createBitmap(steeringBitmap, 0, 0, steeringBitmapWidth, steeringBitmapHeight, matrix, true);
+            steeringImageButton.setImageBitmap(bitmap2);
+        }
+        catch (Exception e) {
+            Log.e(TAG, e.toString());
+        }
     }
 
-    public float getSteeringAngle(float x, float y) {
-        float target_angle = 0;
-        
-        target_angle = currentSteeringAngle + 45;
+    public int getSteeringAngle(float x, float y) {
+        double rad = getRadian(steeringBitmapWidth/2, steeringBitmapHeight/2, x, y);
+        //convert radian to degree
+        int target_angle = (int)(rad * 180d / Math.PI) + 90;
+
         return target_angle;
+    }
+
+    protected double getRadian(double x, double y, double x2, double y2) {
+        double radian = Math.atan2(y2 - y,x2 - x);
+        return radian;
     }
 
     public int getStatusBarHeight() {
@@ -204,13 +227,20 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
         return result;
     }
 
-    /*** MQTT Brokerと接続 ***/
+    /*** Connect MQTT Broker ***/
     private void connectMqttBroker() {
         try {
             mqttAndroidClient.connect(mqttConnectOptions, new IMqttActionListener() {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
                     Log.i(TAG, "Connection Success! isConnected: " + mqttAndroidClient.isConnected());
+
+                    try {
+                        mqttAndroidClient.subscribe(mqttSubscribeTopic, 0);
+                        Log.d(TAG, "subscribe");
+                    } catch (MqttException e) {
+                        Log.d(TAG, e.toString());
+                    }
                 }
 
                 @Override
@@ -253,24 +283,60 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
 
         }
         else if(v == steeringImageButton) {
-            float touch_angle = getSteeringAngle(event.getX(), event.getY());
-            Log.i(TAG, "Touch " + touch_angle);
-            setSteeringAngle(touch_angle);
-        }
-//        // Steering
-//        else if(v == steeringButton) {
-//            float buttonWidth = (float) (displayWidth * (8.0 / 9.0) * (5.0 / 7.0));
-//            mControlComand.steeringCmd = (event.getX() - buttonWidth / 2) / (buttonWidth / 2);
-//            Log.i(TAG, "Accel: " + mControlComand.accelCmd + ", Brake: " + mControlComand.brakeCmd + ", Steering: " + mControlComand.steeringCmd);
-//
-//            if(mControlComand.steeringCmd > 1)
-//                mControlComand.steeringCmd = (float) 1.0;
-//            else if(mControlComand.steeringCmd < -1.0)
-//                mControlComand.steeringCmd = (float) -1.0;
-//            steeringBar.setProgress(Math.round(50 + mControlComand.steeringCmd / 2 * 100));
-//        }
+            if(event.getAction() == MotionEvent.ACTION_DOWN) {
+                baseTouchPointx = event.getX();
+                baseTouchPointy = event.getY();
+            }
+            else if(event.getAction() == MotionEvent.ACTION_MOVE) {
+                double angle_diff = getVectorAngle(baseTouchPointx, baseTouchPointy, event.getX(), event.getY());
+                currentSteeringAngle = currentSteeringAngle + angle_diff;
 
+                if(currentSteeringAngle > STEERING_MAX_VAL) {
+                    currentSteeringAngle = STEERING_MAX_VAL;
+                }
+                else if (currentSteeringAngle < -STEERING_MAX_VAL) {
+                    currentSteeringAngle = -STEERING_MAX_VAL;
+                }
+
+                Log.i(TAG, "CurrentSteeringAngle: " + currentSteeringAngle);
+
+                if(-STEERING_MAX_VAL < currentSteeringAngle && currentSteeringAngle < STEERING_MAX_VAL) {
+                    setCurrentSteeringAngle(currentSteeringAngle);
+                    baseTouchPointx = event.getX();
+                    baseTouchPointy = event.getY();
+
+                    mControlComand.steeringCmd = (float)(0.5 + currentSteeringAngle / STEERING_MAX_VAL / 2);
+                    steeringBar.setProgress((int)(mControlComand.steeringCmd * 100));
+                }
+            }
+        }
         return false;
+    }
+
+    public double getVectorAngle(float x1, float y1, float x2, float y2) {
+
+        float v1x = x1 - steeringBitmapWidth/2;
+        float v1y = y1 - steeringBitmapHeight/2;
+
+        float v2x = x2 - steeringBitmapWidth/2;
+        float v2y = y2 - steeringBitmapHeight/2;
+
+        float babc = v1x * v2x + v1y * v2y;
+        float ban = (v1x * v1x) + (v1y * v1y);
+        float bcn = (v2x * v2x) + (v2y * v2y);
+        double radian = Math.acos(babc / (Math.sqrt(ban * bcn)));
+
+        float tmp = (x2 - steeringBitmapWidth/2) * (y1 - steeringBitmapHeight/2) - (x1 - steeringBitmapWidth/2) * (y2 - steeringBitmapHeight/2);
+
+        double angle = 0;
+        if(0 < tmp) {
+            angle  = -radian * 180 / Math.PI;
+        }
+        else {
+            angle  = radian * 180 / Math.PI;
+        }
+
+        return angle;
     }
 
     @Override
@@ -282,7 +348,7 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
            if(isChecked == true) {
                mControlComand.modeCmd = REMOTE_MODE;
                if(mControlComandUploader == null) {
-                   mControlComandUploader = new ControlComandUploader(mqttAndroidClient, mqttConnectOptions, mqttTopic);
+                   mControlComandUploader = new ControlComandUploader(mqttAndroidClient, mqttConnectOptions, mqttPublishTopic);
                }
                mControlComandUploader.execute();
            }
@@ -305,19 +371,30 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
     }
 
     @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        Log.i(TAG, "onConfigrationChanged()");
+    }
+
+    @Override
     public void onDestroy(){
         super.onDestroy();
+        Log.i(TAG, "onDestroy()");
+        /*** Stop Upload ***/
+        if(mControlComandUploader != null) {
+            mControlComandUploader.stopLogUpload();
+            mControlComandUploader = null;
+        }
+        /*** Disconnect MQTT ***/
+        try{
+            if(mqttAndroidClient.isConnected()) {
+                mqttAndroidClient.disconnect();
+                Log.i(TAG, "MQTT disconnect");
+            }
+            mqttAndroidClient.unregisterResources();
 
-//        /*** MQTTの接続を解除 ***/
-//        try{
-//            if(mqttAndroidClient.isConnected()) {
-//                mqttAndroidClient.disconnect();
-//                Log.i(TAG, "MQTT disconnect");
-//            }
-////            mqttAndroidClient.unregisterResources();
-//
-//        } catch(MqttException e) {
-//            Log.e(TAG, e.toString());
-//        }
+        } catch(MqttException e) {
+            Log.e(TAG, e.toString());
+        }
     }
 }
