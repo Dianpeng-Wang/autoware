@@ -1,5 +1,6 @@
 package jp.tier4.autowaredrive;
 
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
@@ -18,6 +19,7 @@ import android.widget.CompoundButton;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
+import android.widget.Toast;
 import android.widget.ToggleButton;
 
 import org.eclipse.paho.android.service.MqttAndroidClient;
@@ -45,7 +47,9 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
     static private int EMERGENCY_MODE = 1;
     static private int NONEMERGENCY_MODE = 0;
     static private int STEERING_MAX_VAL = 720;
+    static private float STEERING_ANGLE_RATION = 1 / 1;
 
+    private Context mContext;
     private int mVehicleId;
     /*** MQTT ***/
     private MqttAndroidClient mqttAndroidClient;
@@ -88,6 +92,7 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
 
         mControlComand = ControlComand.getInstance();
         mCanInfo = CanInfo.getInstance();
+        mContext = getApplicationContext();
 
         Intent intent = getIntent();
         Bundle bundle = intent.getExtras();
@@ -115,8 +120,14 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
             @Override
             public void messageArrived(String topic, MqttMessage message) throws Exception {
                 String arrivedMessage = new String(message.getPayload());
-                Log.i(TAG, "Message Arrived!: " + topic + ": " + arrivedMessage);
                 mCanInfo.parseCanInfo(arrivedMessage);
+
+                if(mControlComand.modeCmd != REMOTE_MODE) {
+                    currentSteeringAngle = mCanInfo.angle * STEERING_ANGLE_RATION;
+                    setCurrentSteeringAngle(currentSteeringAngle);
+                    mControlComand.steeringCmd = (float)(0.5 + currentSteeringAngle / STEERING_MAX_VAL / 2);
+                    steeringBar.setProgress((int)(mControlComand.steeringCmd * 100));
+                }
             }
 
             @Override
@@ -246,6 +257,7 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
                 @Override
                 public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
                     Log.i(TAG, "Connection Failure! isConnected: " + exception.getMessage() + ", " + mqttAndroidClient.isConnected());
+                    Toast.makeText(mContext, "Connection Failure", Toast.LENGTH_LONG).show();
                 }
             });
         } catch (MqttException ex) {

@@ -40,8 +40,8 @@ import static android.Manifest.permission.READ_CONTACTS;
 public class StartActivity extends AppCompatActivity {
     private static final String TAG = "StartActivity";
 
-    private static final String MQTT_ADDRESS = "localhost";
-    private static final int MQTT_PORT = 1883;
+    private static final String MQTT_ADDRESS = "13.73.18.118";
+    private static final int MQTT_PORT = 80;
     private static final int VEHICLE_ID = 1;
 
     // UI references.
