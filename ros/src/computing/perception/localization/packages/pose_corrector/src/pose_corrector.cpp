@@ -100,7 +100,7 @@ void PoseCorrector::sub2Callback(const sensor_msgs::Imu::ConstPtr& input_msgs)
   //This Code is not support when restarting with changing start time
   if(!queue2.empty() && queue2.front().header.stamp >= input_msgs->header.stamp)
   {
-    std::cout << "Maybe ROSBAG is restarted. Cleared all buffer" << std::endl;
+    //std::cout << "Maybe ROSBAG is restarted. Cleared all buffer" << std::endl;
     queue2.clear();
   }
 
@@ -112,7 +112,7 @@ void PoseCorrector::sub2Callback(const sensor_msgs::Imu::ConstPtr& input_msgs)
 
   while(queue2.back().header.stamp - queue2.front().header.stamp > ros::Duration(10.0))
   {
-    std::cout << "pop " << std::fmod(queue2.front().header.stamp.toSec(), 100.0) << std::endl;
+    //std::cout << "pop " << std::fmod(queue2.front().header.stamp.toSec(), 100.0) << std::endl;
     queue2.pop_front();
   }
 }
@@ -130,18 +130,22 @@ geometry_msgs::PoseStamped PoseCorrector::calc(geometry_msgs::PoseStamped begin_
   auto q1_it = std::begin(queue1);
   auto q2_it = std::begin(queue2);
 
-  while(q1_it != std::end(queue1) || q2_it != std::end(queue2))
+  ros::Time time = q1_it->header.stamp < q2_it->header.stamp ? q1_it->header.stamp : q2_it->header.stamp;
+  while(1)
   {
-    geometry_msgs::TwistStamped tmp;
-    static ros::Time time = q1_it->header.stamp < q2_it->header.stamp ? q1_it->header.stamp : q1_it->header.stamp;
-    
+    geometry_msgs::TwistStamped tmp;    
     tmp.header.stamp = time;
     tmp.twist.linear = q1_it->twist.linear;
     tmp.twist.angular = q2_it->twist.angular;
 
+    //std::cout << std::fmod(time.toSec(), 100.0) << std::endl;
     merged_array.push_back(tmp);
 
-    if((q1_it+1)->header.stamp < (q1_it+1)->header.stamp)
+    if(q1_it+1 == std::end(queue1) && q2_it+1 == std::end(queue2))
+      break;
+    else if( q2_it+1 == std::end(queue2) 
+          || ( q1_it+1 != std::end(queue1) 
+            && (q1_it+1)->header.stamp < (q2_it+1)->header.stamp))
     {
       ++q1_it;
       time = q1_it->header.stamp;
@@ -152,7 +156,22 @@ geometry_msgs::PoseStamped PoseCorrector::calc(geometry_msgs::PoseStamped begin_
       time = q2_it->header.stamp;
     }
   }
+/*
+  while(q1_it != std::end(queue1))
+  {
+    geometry_msgs::TwistStamped tmp;
+    static ros::Time time = q1_it->header.stamp;
+    
+    tmp.header.stamp = time;
+    tmp.twist.linear = q1_it->twist.linear;
+    tmp.twist.angular = q1_it->twist.angular;
 
+    merged_array.push_back(tmp);
+
+    ++q1_it;
+    time = q1_it->header.stamp;
+  }
+*/
   for(auto it = std::begin(merged_array); it != std::end(merged_array); ++it)
   {
     if(it != std::begin(merged_array) && it->header.stamp > end_time)
@@ -162,10 +181,14 @@ geometry_msgs::PoseStamped PoseCorrector::calc(geometry_msgs::PoseStamped begin_
     if(it+1 != std::end(merged_array) && it2->header.stamp < begin_time)
       continue;
 
-    const ros::Time previous_time = (it != std::begin(merged_array) && it->header.stamp > begin_time) ? it->header.stamp : begin_time; 
-    const ros::Time current_time  = (it+1 != std::end(merged_array) && it2->header.stamp < end_time)  ? it2->header.stamp : end_time;
+    const ros::Time previous_time = (it != std::begin(merged_array) && it->header.stamp > begin_time) ? it->header.stamp : begin_time;
+    const ros::Time current_time  = (it+1 != std::end(merged_array) && it2->header.stamp < end_time) ? it2->header.stamp : end_time;
 
-//    std::cout << std::fmod(previous_time.toSec(), 100.0)  << " " << std::fmod(current_time.toSec(), 100.0) << std::endl;
+    std::cout << std::fmod(it->header.stamp.toSec(), 100.0) 
+       << " " << std::fmod(previous_time.toSec(), 100.0)
+       << " " << std::fmod(it2->header.stamp.toSec(), 100.0) 
+       << " " << std::fmod(current_time.toSec(), 100.0)
+       << std::endl;
 
     const double diff_time = (current_time - previous_time).toSec();
     assert(diff_time >= 0);

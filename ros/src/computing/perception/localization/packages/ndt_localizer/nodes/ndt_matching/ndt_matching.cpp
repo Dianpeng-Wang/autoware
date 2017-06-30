@@ -74,6 +74,7 @@
 #include <runtime_manager/ConfigNdt.h>
 
 #include <ndt_localizer/ndt_stat.h>
+#include "pose_corrector_srv/pose_corrector.h"
 
 #define PREDICT_POSE_THRESHOLD 0.5
 
@@ -140,6 +141,8 @@ static geometry_msgs::PoseStamped localizer_pose_msg;
 
 static ros::Publisher estimate_twist_pub;
 static geometry_msgs::TwistStamped estimate_twist_msg;
+
+static ros::ServiceClient pose_corrector_client;
 
 static ros::Time current_scan_time;
 static ros::Time previous_scan_time;
@@ -322,6 +325,19 @@ static void param_callback(const runtime_manager::ConfigNdt::ConstPtr& input)
     current_velocity_imu_x = current_velocity_x;
     current_velocity_imu_y = current_velocity_y;
     current_velocity_imu_z = current_velocity_z;
+
+
+    tf::Quaternion ndt_pose_msgs_q;
+    ndt_pose_msgs_q.setRPY(initial_pose.roll, initial_pose.pitch, initial_pose.yaw);
+    ndt_pose_msg.pose.position.x = initial_pose.x;
+    ndt_pose_msg.pose.position.y = initial_pose.y;
+    ndt_pose_msg.pose.position.z = initial_pose.z;
+    ndt_pose_msg.pose.orientation.x = ndt_pose_msgs_q.x();
+    ndt_pose_msg.pose.orientation.y = ndt_pose_msgs_q.y();
+    ndt_pose_msg.pose.orientation.z = ndt_pose_msgs_q.z();
+    ndt_pose_msg.pose.orientation.w = ndt_pose_msgs_q.w();
+
+
     init_pos_set = 1;
   }
 }
@@ -759,7 +775,7 @@ static void points_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
 
     if (_use_imu == true && _use_odom == true)
       imu_odom_calc(current_scan_time);
-    if(_use_imu == true && _use_odom == true)
+    if (_use_imu == true && _use_odom == false)
       imu_calc(current_scan_time);
     if (_use_imu == false && _use_odom == true)
       odom_calc(current_scan_time);
@@ -773,6 +789,29 @@ static void points_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
       predict_pose_for_ndt = predict_pose_odom;
     else
       predict_pose_for_ndt = predict_pose;
+
+
+    std_msgs::Time current_time;
+    current_time.data = input->header.stamp;
+    static std_msgs::Time previous_time = current_time;
+    pose_corrector_srv::pose_corrector srv;
+    srv.request.pose = ndt_pose_msg;
+    srv.request.previous_time = previous_time;
+    srv.request.current_time = current_time;
+    previous_time = current_time;
+    pose_corrector_client.call(srv);
+
+    double predict_roll, predict_pitch, predict_yaw;
+    tf::Quaternion predict_orientation;
+    tf::quaternionMsgToTF(srv.response.pose.pose.orientation, predict_orientation);
+    tf::Matrix3x3(predict_orientation).getRPY(predict_roll, predict_pitch, predict_yaw);
+
+    predict_pose_for_ndt.x = srv.response.pose.pose.position.x;
+    predict_pose_for_ndt.y = srv.response.pose.pose.position.y;
+    predict_pose_for_ndt.z = srv.response.pose.pose.position.z;
+    predict_pose_for_ndt.roll  = predict_roll;
+    predict_pose_for_ndt.pitch = predict_pitch;
+    predict_pose_for_ndt.yaw   = predict_yaw;
 
     Eigen::Translation3f init_translation(predict_pose_for_ndt.x, predict_pose_for_ndt.y, predict_pose_for_ndt.z);
     Eigen::AngleAxisf init_rotation_x(predict_pose_for_ndt.roll, Eigen::Vector3f::UnitX());
@@ -1166,6 +1205,7 @@ static void points_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
         << std::endl;
 
     std::cout << "-----------------------------------------------------------------" << std::endl;
+/*
     std::cout << "Sequence: " << input->header.seq << std::endl;
     std::cout << "Timestamp: " << input->header.stamp << std::endl;
     std::cout << "Frame ID: " << input->header.frame_id << std::endl;
@@ -1177,11 +1217,23 @@ static void points_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
     std::cout << "Execution Time: " << exe_time << " ms." << std::endl;
     std::cout << "Number of Iterations: " << ndt.getFinalNumIteration() << std::endl;
     std::cout << "NDT Reliability: " << ndt_reliability.data << std::endl;
+
     std::cout << "(x,y,z,roll,pitch,yaw): " << std::endl;
+
     std::cout << "(" << current_pose.x << ", " << current_pose.y << ", " << current_pose.z << ", " << current_pose.roll
               << ", " << current_pose.pitch << ", " << current_pose.yaw << ")" << std::endl;
+*/
+
+    std::cout << current_pose.x << " " << predict_pose_for_ndt.x << " " << srv.response.pose.pose.position.x << std::endl;
+    std::cout << current_pose.y << " " << predict_pose_for_ndt.y << " " << srv.response.pose.pose.position.y << std::endl;
+    std::cout << current_pose.z << " " << predict_pose_for_ndt.z << " " << srv.response.pose.pose.position.z << std::endl;
+    std::cout << current_pose.roll << " " << predict_pose_for_ndt.roll << " " << predict_roll << std::endl;
+    std::cout << current_pose.pitch << " " << predict_pose_for_ndt.pitch << " " << predict_pitch << std::endl;
+    std::cout << current_pose.yaw << " " << predict_pose_for_ndt.yaw << " " << predict_yaw << std::endl;
+/*
     std::cout << "Transformation Matrix: " << std::endl;
     std::cout << t << std::endl;
+*/
     std::cout << "-----------------------------------------------------------------" << std::endl;
 
     // Update offset
@@ -1374,6 +1426,8 @@ int main(int argc, char** argv)
   ros::Subscriber points_sub = nh.subscribe("filtered_points", _queue_size, points_callback);
   ros::Subscriber odom_sub = nh.subscribe("/odom_pose", _queue_size*10, odom_callback);
   ros::Subscriber imu_sub = nh.subscribe(_imu_topic.c_str(), _queue_size*10, imu_callback);
+
+  pose_corrector_client = nh.serviceClient<pose_corrector_srv::pose_corrector>("/pose_corrector");
 
   ros::spin();
 
