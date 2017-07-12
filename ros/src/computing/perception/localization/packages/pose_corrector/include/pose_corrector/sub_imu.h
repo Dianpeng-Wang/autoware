@@ -28,38 +28,45 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <iostream>
-#include <deque>
-#include <cmath>
-#include <cassert>
+#ifndef SUB_IMU_H
+#define SUB_IMU_H
 
 #include <ros/ros.h>
-#include <tf/tf.h>
-#include <nav_msgs/Odometry.h>	
 #include <sensor_msgs/Imu.h>
-#include <geometry_msgs/TwistStamped.h>
 
-#include "pose_corrector/sub_base.h"
 #include "pose_corrector/sub_template.h"
-#include "pose_corrector/sub_imu.h"
-#include "pose_corrector/sub_odom.h"
-#include "pose_corrector/merge_base.h"
-#include "pose_corrector/merge_base_one.h"
-#include "pose_corrector/merge_base_two.h"
-#include "pose_corrector/merge_imu_odom.h"
-#include "pose_corrector/pose_corrector_base.h"
-#include "pose_corrector_srv/pose_corrector.h"
 
-int main(int argc, char** argv)
+class SubImu : public SubTemplate<sensor_msgs::Imu>
 {
-  ros::init(argc, argv, "pose_corrector");
-  ros::NodeHandle nh;
-  ros::NodeHandle private_nh("~");
+  public:
+    SubImu(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, std::string topic_name);
+    ~SubImu() override;
+  private:
+    //geometry_msgs::TwistStamped convertToTwistStamped(const boost::shared_ptr<const sensor_msgs::Imu>& input_msgs) override;
+    geometry_msgs::TwistStamped convertToTwistStamped() override;
 
-  boost::shared_ptr<const MergeImuOdom> merge_imu_odom = boost::make_shared<const MergeImuOdom>(nh, private_nh, "imu_raw", "odom_pose");
-  PoseCorrectorBase pose_corrector_base(nh, private_nh, merge_imu_odom);
+};
 
-  ros::spin();
-  return 0;
+//TODO: Move to cpp
+
+SubImu::SubImu(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, std::string topic_name) : 
+   SubTemplate(nh, private_nh, topic_name)
+{
 }
 
+SubImu::~SubImu()
+{
+}
+
+//geometry_msgs::TwistStamped SubImu::convertToTwistStamped(const boost::shared_ptr<const sensor_msgs::Imu>& input_msgs)
+geometry_msgs::TwistStamped SubImu::convertToTwistStamped()
+{
+  geometry_msgs::TwistStamped tmp;
+  tmp.header        = input_msgs_.header;
+  tmp.twist.linear  = input_msgs_.linear_acceleration;
+  tmp.twist.angular = input_msgs_.angular_velocity;
+  return tmp;
+}
+
+
+#endif

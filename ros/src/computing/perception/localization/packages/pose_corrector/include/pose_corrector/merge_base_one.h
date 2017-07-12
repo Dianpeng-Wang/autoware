@@ -28,38 +28,56 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <iostream>
+#ifndef MERGE_BASE_ONE_H
+#define MERGE_BASE_ONE_H
+
+#include <vector>
 #include <deque>
-#include <cmath>
-#include <cassert>
 
 #include <ros/ros.h>
-#include <tf/tf.h>
-#include <nav_msgs/Odometry.h>	
-#include <sensor_msgs/Imu.h>
 #include <geometry_msgs/TwistStamped.h>
 
 #include "pose_corrector/sub_base.h"
-#include "pose_corrector/sub_template.h"
-#include "pose_corrector/sub_imu.h"
-#include "pose_corrector/sub_odom.h"
-#include "pose_corrector/merge_base.h"
-#include "pose_corrector/merge_base_one.h"
-#include "pose_corrector/merge_base_two.h"
-#include "pose_corrector/merge_imu_odom.h"
-#include "pose_corrector/pose_corrector_base.h"
-#include "pose_corrector_srv/pose_corrector.h"
 
-int main(int argc, char** argv)
+class MergeBaseOne : public MergeBase
 {
-  ros::init(argc, argv, "pose_corrector");
-  ros::NodeHandle nh;
-  ros::NodeHandle private_nh("~");
+  public:
+    MergeBaseOne(const boost::shared_ptr<const SubBase>& sub);
+    ~MergeBaseOne() override;
+     geometry_msgs::TwistStamped mergeData(const geometry_msgs::TwistStamped& data) const
+     {
+       return data;
+     }
+     std::vector<geometry_msgs::TwistStamped> mergeQueue() const override;
+   
+   private:
+     boost::shared_ptr<const SubBase> sub_ptr_;
+};
 
-  boost::shared_ptr<const MergeImuOdom> merge_imu_odom = boost::make_shared<const MergeImuOdom>(nh, private_nh, "imu_raw", "odom_pose");
-  PoseCorrectorBase pose_corrector_base(nh, private_nh, merge_imu_odom);
+MergeBaseOne::MergeBaseOne(const boost::shared_ptr<const SubBase>& sub) :
+    sub_ptr_(sub)
+{
 
-  ros::spin();
-  return 0;
 }
 
+MergeBaseOne::~MergeBaseOne()
+{
+
+}
+
+std::vector<geometry_msgs::TwistStamped> MergeBaseOne::mergeQueue() const
+{
+  std::vector<geometry_msgs::TwistStamped> merged_array;
+  
+  auto queue = sub_ptr_->getQueue();
+  
+  for(const auto& data :queue)
+  {
+    auto d = mergeData(data);
+    merged_array.push_back(d);
+  }
+
+  return merged_array;
+}
+
+#endif

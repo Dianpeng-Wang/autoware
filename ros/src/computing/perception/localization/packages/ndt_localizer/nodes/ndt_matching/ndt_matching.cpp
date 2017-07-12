@@ -799,7 +799,12 @@ static void points_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
     srv.request.previous_time = previous_time;
     srv.request.current_time = current_time;
     previous_time = current_time;
+
+    std::chrono::time_point<std::chrono::system_clock> srv_start = std::chrono::system_clock::now();
     pose_corrector_client.call(srv);
+    std::chrono::time_point<std::chrono::system_clock> srv_end = std::chrono::system_clock::now();
+    double srv_time = std::chrono::duration_cast<std::chrono::microseconds>(srv_end - srv_start).count() / 1000.0;
+    std::cout << "time: " << srv_time << std::endl;
 
     double predict_roll, predict_pitch, predict_yaw;
     tf::Quaternion predict_orientation;

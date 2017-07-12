@@ -28,38 +28,42 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <iostream>
-#include <deque>
-#include <cmath>
-#include <cassert>
+#ifndef MERGE_IMU_ODOM_H
+#define MERGE_IMU_ODOM_H
+
+#include <string>
 
 #include <ros/ros.h>
-#include <tf/tf.h>
-#include <nav_msgs/Odometry.h>	
-#include <sensor_msgs/Imu.h>
 #include <geometry_msgs/TwistStamped.h>
 
-#include "pose_corrector/sub_base.h"
-#include "pose_corrector/sub_template.h"
+#include "pose_corrector/merge_base_two.h"
 #include "pose_corrector/sub_imu.h"
 #include "pose_corrector/sub_odom.h"
-#include "pose_corrector/merge_base.h"
-#include "pose_corrector/merge_base_one.h"
-#include "pose_corrector/merge_base_two.h"
-#include "pose_corrector/merge_imu_odom.h"
-#include "pose_corrector/pose_corrector_base.h"
-#include "pose_corrector_srv/pose_corrector.h"
 
-int main(int argc, char** argv)
+class MergeImuOdom : public MergeBaseTwo
 {
-  ros::init(argc, argv, "pose_corrector");
-  ros::NodeHandle nh;
-  ros::NodeHandle private_nh("~");
+  public:
+    MergeImuOdom(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, const std::string imu_topic_name, const std::string odom_topic_name);
+    ~MergeImuOdom() override;
+  //private:
+    geometry_msgs::TwistStamped mergeData(const ros::Time time, const geometry_msgs::TwistStamped& data1, const geometry_msgs::TwistStamped& data2) const override
+    {
+      geometry_msgs::TwistStamped tmp;
+      tmp.header.stamp = time;
+      tmp.twist.linear = data1.twist.linear;
+      tmp.twist.angular = data2.twist.angular;
+      return tmp;
+    };
+    
+};
 
-  boost::shared_ptr<const MergeImuOdom> merge_imu_odom = boost::make_shared<const MergeImuOdom>(nh, private_nh, "imu_raw", "odom_pose");
-  PoseCorrectorBase pose_corrector_base(nh, private_nh, merge_imu_odom);
-
-  ros::spin();
-  return 0;
+MergeImuOdom::MergeImuOdom(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, const std::string imu_topic_name, const std::string odom_topic_name) :
+   MergeBaseTwo(boost::make_shared<const SubImu>(nh, private_nh, imu_topic_name), boost::make_shared<const SubOdom>(nh, private_nh, odom_topic_name))
+{
 }
 
+MergeImuOdom::~MergeImuOdom()
+{
+}
+
+#endif

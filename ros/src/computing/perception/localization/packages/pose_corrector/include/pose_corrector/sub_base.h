@@ -28,38 +28,23 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#ifndef SUB_BASE_H
+#define SUB_BASE_H
+
 #include <iostream>
+#include <string>
 #include <deque>
-#include <cmath>
-#include <cassert>
 
 #include <ros/ros.h>
-#include <tf/tf.h>
-#include <nav_msgs/Odometry.h>	
-#include <sensor_msgs/Imu.h>
 #include <geometry_msgs/TwistStamped.h>
 
-#include "pose_corrector/sub_base.h"
-#include "pose_corrector/sub_template.h"
-#include "pose_corrector/sub_imu.h"
-#include "pose_corrector/sub_odom.h"
-#include "pose_corrector/merge_base.h"
-#include "pose_corrector/merge_base_one.h"
-#include "pose_corrector/merge_base_two.h"
-#include "pose_corrector/merge_imu_odom.h"
-#include "pose_corrector/pose_corrector_base.h"
-#include "pose_corrector_srv/pose_corrector.h"
 
-int main(int argc, char** argv)
+class SubBase
 {
-  ros::init(argc, argv, "pose_corrector");
-  ros::NodeHandle nh;
-  ros::NodeHandle private_nh("~");
+  public:
+    virtual ~SubBase() {};
+    virtual geometry_msgs::TwistStamped convertToTwistStamped() = 0;
+    virtual std::deque<geometry_msgs::TwistStamped> getQueue() const = 0;
+};
 
-  boost::shared_ptr<const MergeImuOdom> merge_imu_odom = boost::make_shared<const MergeImuOdom>(nh, private_nh, "imu_raw", "odom_pose");
-  PoseCorrectorBase pose_corrector_base(nh, private_nh, merge_imu_odom);
-
-  ros::spin();
-  return 0;
-}
-
+#endif

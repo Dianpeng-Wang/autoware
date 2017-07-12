@@ -28,38 +28,44 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <iostream>
-#include <deque>
-#include <cmath>
-#include <cassert>
+#ifndef SUB_ODOM_H
+#define SUB_ODOM_H
 
 #include <ros/ros.h>
-#include <tf/tf.h>
-#include <nav_msgs/Odometry.h>	
-#include <sensor_msgs/Imu.h>
-#include <geometry_msgs/TwistStamped.h>
+#include <nav_msgs/Odometry.h>
 
-#include "pose_corrector/sub_base.h"
 #include "pose_corrector/sub_template.h"
-#include "pose_corrector/sub_imu.h"
-#include "pose_corrector/sub_odom.h"
-#include "pose_corrector/merge_base.h"
-#include "pose_corrector/merge_base_one.h"
-#include "pose_corrector/merge_base_two.h"
-#include "pose_corrector/merge_imu_odom.h"
-#include "pose_corrector/pose_corrector_base.h"
-#include "pose_corrector_srv/pose_corrector.h"
 
-int main(int argc, char** argv)
+class SubOdom : public SubTemplate<nav_msgs::Odometry>
 {
-  ros::init(argc, argv, "pose_corrector");
-  ros::NodeHandle nh;
-  ros::NodeHandle private_nh("~");
+  public:
+    SubOdom(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, std::string topic_name);
+    ~SubOdom() override;
+  private:
+    //geometry_msgs::TwistStamped convertToTwistStamped(const boost::shared_ptr<const nav_msgs::Odometry>& input_msgs) override;
+    geometry_msgs::TwistStamped convertToTwistStamped() override;
 
-  boost::shared_ptr<const MergeImuOdom> merge_imu_odom = boost::make_shared<const MergeImuOdom>(nh, private_nh, "imu_raw", "odom_pose");
-  PoseCorrectorBase pose_corrector_base(nh, private_nh, merge_imu_odom);
+};
 
-  ros::spin();
-  return 0;
+//TODO: Move to cpp
+
+SubOdom::SubOdom(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, std::string topic_name) : 
+   SubTemplate(nh, private_nh, topic_name)
+{
 }
 
+SubOdom::~SubOdom()
+{
+}
+
+//geometry_msgs::TwistStamped SubOdom::convertToTwistStamped(const boost::shared_ptr<const nav_msgs::Odometry>& input_msgs)
+geometry_msgs::TwistStamped SubOdom::convertToTwistStamped()
+{
+  geometry_msgs::TwistStamped tmp;
+  tmp.header = input_msgs_.header;
+  tmp.twist = input_msgs_.twist.twist;
+  return tmp;
+}
+
+
+#endif
