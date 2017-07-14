@@ -28,6 +28,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   ${FAST_PCL_PACKAGES}
   ndt_tku
+  pose_corrector_msgs
 )
 elseif("${ROS_VERSION}" MATCHES "(kinetic)")
 find_package(catkin REQUIRED COMPONENTS
@@ -39,6 +40,7 @@ find_package(catkin REQUIRED COMPONENTS
   velodyne_pointcloud
   message_generation
   ${FAST_PCL_PACKAGES}
+  pose_corrector_msgs
 )
 endif()
 add_message_files(FILES ndt_stat.msg)
@@ -56,14 +58,14 @@ catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES ndt_pcl
   CATKIN_DEPENDS runtime_manager message_runtime std_msgs velodyne_pointcloud ${FAST_PCL_PACKAGES}
-  DEPENDS ndt_tku
+  DEPENDS ndt_tku pose_corrector_msgs
 #  DEPENDS system_lib
 )
 elseif("${ROS_VERSION}" MATCHES "(kinetic)")
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES ndt_pcl
-  CATKIN_DEPENDS runtime_manager message_runtime std_msgs velodyne_pointcloud ${FAST_PCL_PACKAGES}
+  CATKIN_DEPENDS runtime_manager message_runtime std_msgs velodyne_pointcloud ${FAST_PCL_PACKAGES} pose_corrector_msgs
 #  DEPENDS ndt_tku
 #  DEPENDS system_lib
 )

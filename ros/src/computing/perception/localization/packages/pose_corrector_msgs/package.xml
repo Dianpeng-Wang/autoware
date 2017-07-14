@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>pose_corrector_srv</name>
+  <name>pose_corrector_msgs</name>
   <version>0.0.0</version>
   <description>The pose_corrector_srv package</description>
   <maintainer email="yamato.ando@tier4.jp">Yamato Ando</maintainer>

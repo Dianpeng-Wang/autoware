@@ -29,20 +29,29 @@
 */
 
 #include <ros/ros.h>
+#include <nodelet/nodelet.h>
+#include <pluginlib/class_list_macros.h>
 
 #include "pose_corrector/merge_imu_odom.h"
 #include "pose_corrector/pose_corrector_base.h"
 
-int main(int argc, char** argv)
+class PoseCorrectorNodelet : public nodelet::Nodelet
 {
-  ros::init(argc, argv, "pose_corrector");
-  ros::NodeHandle nh;
-  ros::NodeHandle private_nh("~");
+  public:
+    PoseCorrectorNodelet()  {};
 
-  boost::shared_ptr<const MergeImuOdom> merge_imu_odom = boost::make_shared<const MergeImuOdom>(nh, private_nh, "/imu_raw", "/odom_pose");
-  PoseCorrectorBase pose_corrector_base(nh, private_nh, merge_imu_odom);
+    ~PoseCorrectorNodelet() {};
+  
+    virtual void onInit()
+    {
+      merge_base_ptr_.reset(new MergeImuOdom(getNodeHandle(), getPrivateNodeHandle(), "imu_raw", "odom_pose"));
+      pose_corrector_ptr_.reset(new PoseCorrectorBase(getNodeHandle(), getPrivateNodeHandle(), merge_base_ptr_));
 
-  ros::spin();
-  return 0;
-}
+    }
 
+  private:
+    boost::shared_ptr<MergeBase> merge_base_ptr_;
+    boost::shared_ptr<PoseCorrectorBase> pose_corrector_ptr_;
+};
+
+PLUGINLIB_EXPORT_CLASS(PoseCorrectorNodelet, nodelet::Nodelet)

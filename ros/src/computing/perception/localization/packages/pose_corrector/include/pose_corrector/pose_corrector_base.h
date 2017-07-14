@@ -43,7 +43,13 @@
 #include <sensor_msgs/PointCloud2.h>
 
 #include "pose_corrector/merge_base.h"
-#include "pose_corrector_srv/pose_corrector.h"
+#include "pose_corrector_msgs/Request.h"
+#include "pose_corrector_msgs/Response.h"
+#include "pose_corrector_msgs/Service.h"
+
+
+//TODO: if not publish sensor topics -> segmentation falut
+//TODO: request.pose.pose.orientation == all 0 -> warning
 
 class PoseCorrectorBase
 {
@@ -52,14 +58,16 @@ class PoseCorrectorBase
     virtual ~PoseCorrectorBase();
     geometry_msgs::PoseStamped calc(const geometry_msgs::PoseStamped& begin_pose, const ros::Time& begin_time, const ros::Time& end_time);
 
-    bool srvCallback(pose_corrector_srv::pose_corrector::Request& req, pose_corrector_srv::pose_corrector::Response& res);
+    void subCallback(const pose_corrector_msgs::Request::ConstPtr& req);
+    bool srvCallback(pose_corrector_msgs::Service::Request& req, pose_corrector_msgs::Service::Response& res);
+
 
 //  private:
     ros::NodeHandle nh_;
     ros::NodeHandle private_nh_;
     
-//    ros::Subscriber lidar_sub_;
-//    ros::Publisher pub_;
+    ros::Subscriber sub_;
+    ros::Publisher pub_;
     ros::ServiceServer srv_;
 
     boost::shared_ptr<const MergeBase> merge_base_ptr_;
@@ -73,22 +81,38 @@ PoseCorrectorBase::PoseCorrectorBase(const ros::NodeHandle& nh, const ros::NodeH
     ,private_nh_(private_nh)
     ,merge_base_ptr_(merge_base_ptr)
 {
-//  lidar_sub_ = nh_.subscribe("/points_raw", 10, &PoseCorrectorBase::lidarsubCallback, this);
-//  pub_ = nh_.advertise<geometry_msgs::PoseStamped>("/pose_correct", 1, this);
-  srv_= nh_.advertiseService("/pose_corrector", &PoseCorrectorBase::srvCallback, this);
+  sub_ = nh_.subscribe("/pose_corrector_request", 10, &PoseCorrectorBase::subCallback, this);
+  pub_ = nh_.advertise<pose_corrector_msgs::Response>("/pose_corrector_response", 10, this);
+  srv_= nh_.advertiseService("/pose_corrector_service", &PoseCorrectorBase::srvCallback, this);
 }
 
 PoseCorrectorBase::~PoseCorrectorBase()
 {
 }
 
-bool PoseCorrectorBase::srvCallback(pose_corrector_srv::pose_corrector::Request& req, pose_corrector_srv::pose_corrector::Response& res)
+void PoseCorrectorBase::subCallback(const pose_corrector_msgs::Request::ConstPtr& req)
 {
-    std::chrono::time_point<std::chrono::system_clock> srv_start = std::chrono::system_clock::now();
+  pose_corrector_msgs::Response res;
+  
+  std::chrono::time_point<std::chrono::system_clock> srv_start = std::chrono::system_clock::now();
+  res.pose = calc(req->pose, req->previous_time.data, req->current_time.data);
+  std::chrono::time_point<std::chrono::system_clock> srv_end = std::chrono::system_clock::now();
+  
+  double srv_time = std::chrono::duration_cast<std::chrono::microseconds>(srv_end - srv_start).count() / 1000.0;
+  std::cout << "time: " << srv_time << std::endl;
+
+  pub_.publish(res);
+}
+
+bool PoseCorrectorBase::srvCallback(pose_corrector_msgs::Service::Request& req, pose_corrector_msgs::Service::Response& res)
+{
+  std::chrono::time_point<std::chrono::system_clock> srv_start = std::chrono::system_clock::now();
   res.pose = calc(req.pose, req.previous_time.data, req.current_time.data);
-    std::chrono::time_point<std::chrono::system_clock> srv_end = std::chrono::system_clock::now();
-    double srv_time = std::chrono::duration_cast<std::chrono::microseconds>(srv_end - srv_start).count() / 1000.0;
-    std::cout << "time: " << srv_time << std::endl;
+  std::chrono::time_point<std::chrono::system_clock> srv_end = std::chrono::system_clock::now();
+
+  double srv_time = std::chrono::duration_cast<std::chrono::microseconds>(srv_end - srv_start).count() / 1000.0;
+  std::cout << "time: " << srv_time << std::endl;
+
   return true;
 }
 

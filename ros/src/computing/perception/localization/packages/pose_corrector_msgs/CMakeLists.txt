@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(pose_corrector_srv)
+project(pose_corrector_msgs)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -40,14 +40,16 @@ find_package(catkin REQUIRED COMPONENTS std_msgs geometry_msgs message_generatio
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-# )
+add_message_files(
+   FILES
+   Request.msg
+   Response.msg
+)
 
 ## Generate services in the 'srv' folder
 add_service_files(
   FILES
-  pose_corrector.srv
+  Service.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -93,7 +95,7 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES pose_corrector_srv
+#  LIBRARIES pose_corrector_msgs
   CATKIN_DEPENDS std_msgs geometry_msgs
 #  DEPENDS system_lib
 )
@@ -107,24 +109,24 @@ catkin_package(
 # include_directories(include)
 
 ## Declare a C++ library
-# add_library(pose_corrector_srv
-#   src/${PROJECT_NAME}/pose_corrector_srv.cpp
+# add_library(pose_corrector_msgs
+#   src/${PROJECT_NAME}/pose_corrector_msgs.cpp
 # )
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
-# add_dependencies(pose_corrector_srv ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(pose_corrector_msgs ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
-# add_executable(pose_corrector_srv_node src/pose_corrector_srv_node.cpp)
+# add_executable(pose_corrector_msgs_node src/pose_corrector_msgs_node.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-# add_dependencies(pose_corrector_srv_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(pose_corrector_msgs_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(pose_corrector_srv_node
+# target_link_libraries(pose_corrector_msgs_node
 #   ${catkin_LIBRARIES}
 # )
 
@@ -143,7 +145,7 @@ catkin_package(
 # )
 
 ## Mark executables and/or libraries for installation
-# install(TARGETS pose_corrector_srv pose_corrector_srv_node
+# install(TARGETS pose_corrector_msgs pose_corrector_msgs_node
 #   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -168,7 +170,7 @@ catkin_package(
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_pose_corrector_srv.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_pose_corrector_msgs.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

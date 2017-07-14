@@ -37,6 +37,7 @@
 #include <ros/ros.h>
 #include <geometry_msgs/TwistStamped.h>
 
+#include "pose_corrector/merge_base.h"
 #include "pose_corrector/sub_base.h"
 
 

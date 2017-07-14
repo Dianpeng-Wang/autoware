@@ -1,0 +1,7 @@
+<library path="lib/libpose_corrector_nodelet">
+  <class name="PoseCorrectorNodelet" type="PoseCorrectorNodelet" base_class_type="nodelet::Nodelet">
+  <description>
+  PoseCorrectorNodelet.
+  </description>
+  </class>
+</library>

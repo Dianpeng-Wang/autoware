@@ -12,7 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   sensor_msgs
   nav_msgs
-  pose_corrector_srv
+  pose_corrector_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -107,7 +107,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
    INCLUDE_DIRS include
 #  LIBRARIES pose_corrector
-   CATKIN_DEPENDS roscpp geometry_msgs sensor_msgs nav_msgs pose_corrector_srv
+   CATKIN_DEPENDS roscpp geometry_msgs sensor_msgs nav_msgs pose_corrector_msgs
 #  DEPENDS system_lib
 )
 
@@ -126,6 +126,7 @@ include_directories(
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/pose_corrector.cpp
 # )
+add_library(${PROJECT_NAME}_nodelet src/nodelet.cpp)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -148,10 +149,20 @@ add_executable(${PROJECT_NAME} src/pose_corrector.cpp)
 add_dependencies(${PROJECT_NAME} 
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
+  pose_corrector_msgs_generate_messages_cpp
+)
+
+add_dependencies(${PROJECT_NAME}_nodelet
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  pose_corrector_msgs_generate_messages_cpp
 )
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(${PROJECT_NAME}_nodelet
   ${catkin_LIBRARIES}
 )
 

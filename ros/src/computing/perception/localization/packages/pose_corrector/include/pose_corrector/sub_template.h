@@ -94,7 +94,7 @@ void SubTemplate<T>::subCallback(const boost::shared_ptr<const T>& input_msgs)
   //auto tmp = convertToTwistStamped(input_msgs);
   queue_.push_back(tmp);
 
-  while(queue_.back().header.stamp - queue_.front().header.stamp > ros::Duration(10.0))
+  while(queue_.back().header.stamp - queue_.front().header.stamp > ros::Duration(5.0))
   {
     //std::cout << "pop " << std::fmod(queue_.front().header.stamp.toSec(), 100.0) << std::endl;
     queue_.pop_front();

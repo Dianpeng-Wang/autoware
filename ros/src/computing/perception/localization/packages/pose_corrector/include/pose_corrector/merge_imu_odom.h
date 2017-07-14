@@ -50,8 +50,8 @@ class MergeImuOdom : public MergeBaseTwo
     {
       geometry_msgs::TwistStamped tmp;
       tmp.header.stamp = time;
-      tmp.twist.linear = data1.twist.linear;
-      tmp.twist.angular = data2.twist.angular;
+      tmp.twist.linear = data2.twist.linear;
+      tmp.twist.angular = data1.twist.angular;
       return tmp;
     };
     
