@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package>
+  <name>camera_lidar_fuser</name>
+  <version>1.0.0</version>
+  <description>The camera_lidar_fuser package</description>
+  <maintainer email="amc@auto.ware">amc</maintainer>
+  <license>BSD</license>
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>autoware_msgs</build_depend>
+  <run_depend>std_msgs</run_depend>
+  <run_depend>geometry_msgs</run_depend>
+  <run_depend>autoware_msgs</run_depend>
+</package>
