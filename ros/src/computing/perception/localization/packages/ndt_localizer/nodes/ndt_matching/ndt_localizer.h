@@ -27,7 +27,6 @@
  *  OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-
 /*
  Localization program using Normal Distributions Transform
 
@@ -76,6 +75,7 @@
 #include "pose_corrector_msgs/Response.h"
 #include "pose_corrector_msgs/Service.h"
 
+//TODO: remove define
 #define PREDICT_POSE_THRESHOLD 0.5
 
 #define Wa 0.4
@@ -147,7 +147,7 @@ struct Velocity
     angular.y = diff_pose.pitch / time_diff_sec;
     angular.z = diff_pose.yaw / time_diff_sec;
   };
-  
+
   Velocity operator-(const Velocity& rhs_v) const
   {
     Velocity tmp_v;
@@ -230,9 +230,11 @@ class NDTLocalizer
     ros::Subscriber pose_corrector_sub_;
 
     ros::ServiceClient pose_corrector_client_;
-  
+
     ros::Time current_scan_time_;  //TODO: sholud remove
     std_msgs::Float32 time_ndt_matching_; //TODO: sholud remove
+    std_msgs::Float32 ndt_reliability_;  //TODO: sholud remove
+    std_msgs::Header current_scan_header_;
 
     tf::TransformBroadcaster tf_broadcaster_;
     tf::TransformListener tf_listener_;
@@ -253,13 +255,15 @@ class NDTLocalizer
     double fitness_score_; //TODO: sholud remove
     double trans_probability_; //TODO: sholud remove
     double exe_time_; //TODO: sholud remove
-    
+    double align_time_; //TODO: sholud remove
+    double getFitnessScore_time_; //TODO: sholud remove
+    double predict_pose_error_; //TODO: sholud remove
+    double current_velocity_smooth_;  //TODO: sholud remove
     std::ofstream ofs_;
-    
+
     pcl::NormalDistributionsTransform<PointT, PointT> ndt_;
-    pcl::PointCloud<PointT> map_;  //TODO: ptr
+    pcl::PointCloud<PointT> map_;
     pcl::PointCloud<PointT> scan_;
-    boost::shared_ptr< pcl::PointCloud<PointT> > scan_ptr_;
 
     Eigen::Matrix4f tf_btol_; //TODO: sholud remove
     Eigen::Matrix4f tf_ltob_; //TODO: sholud remove
@@ -289,14 +293,14 @@ NDTLocalizer<PointT>::NDTLocalizer(const ros::NodeHandle& nh, const ros::NodeHan
    ,trans_eps_(0.01)
    ,localizer_("velodyne")
 {
-  // Set log file name.
+  
   char buffer[80];
   std::time_t now = std::time(NULL);
   std::tm* pnow = std::localtime(&now);
   std::strftime(buffer, 80, "%Y%m%d_%H%M%S", pnow);
   std::string filename = "ndt_matching_" + std::string(buffer) + ".csv";
   ofs_.open(filename.c_str(), std::ios::app);
-
+  
   // Geting parameters
   private_nh_.getParam("use_gnss", use_gnss_);
   private_nh_.getParam("queue_size", queue_size_);
@@ -309,7 +313,11 @@ NDTLocalizer<PointT>::NDTLocalizer(const ros::NodeHandle& nh, const ros::NodeHan
     std::cout << "localizer is not set." << std::endl;
     exit(1);
   }
+
   static double tf_x, tf_y, tf_z, tf_roll, tf_pitch, tf_yaw;
+
+  //TODO: should rename parameters
+  //e.g. tf_x -> /base_link_to_localizer/tf_x
   if (nh_.getParam("tf_x", tf_x) == false)
   {
     std::cout << "tf_x is not set." << std::endl;
@@ -522,13 +530,13 @@ void NDTLocalizer<PointT>::gnssCallback(const geometry_msgs::PoseStamped::ConstP
   static Pose previous_gnss_pose = current_gnss_pose;
   ros::Time current_gnss_time = input->header.stamp;
   static ros::Time previous_gnss_time = current_gnss_time;
-  
+
   Velocity current_gnss_velocity;
   static Velocity previous_gnss_velocity;
   static Velocity previous_previous_gnss_velocity;
   double time_diff_sec = (current_gnss_time - current_gnss_time).toSec();
   current_gnss_velocity.setVelocity(current_gnss_pose, previous_gnss_pose, time_diff_sec);
-  
+
   if ((use_gnss_ == true && init_pos_set_ == false) || fitness_score_ >= 500.0)
   {
     previous_pose_ = previous_gnss_pose;
@@ -537,7 +545,7 @@ void NDTLocalizer<PointT>::gnssCallback(const geometry_msgs::PoseStamped::ConstP
     current_velocity_ = current_gnss_velocity;
     previous_velocity_ = previous_gnss_velocity;
     previous_previous_velocity_ = previous_previous_gnss_velocity;
-       
+
     current_accel_.setAccel(current_velocity_, previous_velocity_, time_diff_sec);
 
     init_pos_set_ = true;
@@ -545,10 +553,10 @@ void NDTLocalizer<PointT>::gnssCallback(const geometry_msgs::PoseStamped::ConstP
 
   previous_gnss_pose = current_gnss_pose;
   previous_gnss_time = current_gnss_time;
-  
+
   previous_gnss_velocity = current_gnss_velocity;
   previous_previous_gnss_velocity = previous_gnss_velocity;
-  
+
 }
 
 template <class PointT>
@@ -556,7 +564,7 @@ void NDTLocalizer<PointT>::initialposeCallback(const geometry_msgs::PoseWithCova
 {
   Pose initial_pose;
   tf::StampedTransform transform;
-  
+
   if (use_local_transform_ == true)
   {
     initial_pose.x = input->pose.pose.position.x;
@@ -602,7 +610,7 @@ void NDTLocalizer<PointT>::initialposeCallback(const geometry_msgs::PoseWithCova
   }
   current_pose_ = initial_pose;
   previous_pose_ = current_pose_;
-  
+
   current_velocity_.clear();
   previous_velocity_.clear();
   previous_previous_velocity_.clear();
@@ -650,7 +658,7 @@ geometry_msgs::PoseStamped convertPosetoROSMsg(const std_msgs::Header& header, c
 {
   tf::Quaternion q;
   q.setRPY(pose.roll, pose.pitch, pose.yaw);
-  
+
   tf::Vector3 v(pose.x, pose.y, pose.z);
   tf::Transform transform(q, v);
 
@@ -666,46 +674,44 @@ geometry_msgs::PoseStamped convertPosetoROSMsg(const std_msgs::Header& header, c
   return msg;
 }
 
-bool is_received_points = false;
-
 template <class PointT>
 void NDTLocalizer<PointT>::pointsCallback(const sensor_msgs::PointCloud2::ConstPtr& input)
 {
   std::cout << __func__ << std::endl;
-  if (map_loaded_ == false || init_pos_set_ == false)
+  if (map_loaded_ == false)
+  {
+    ROS_INFO("received points. But map is not loaded");
     return;
+  }
+  else if(init_pos_set_ == false)
+  {
+    ROS_INFO("received points. But initial pose is not set");
+    return;
+  }
 
   //matching_start = std::chrono::system_clock::now();
-    
-  current_scan_time_ = input->header.stamp;
+  current_scan_header_ = input->header;
+  current_scan_time_ = current_scan_header_.stamp;
 
   pcl::fromROSMsg(*input, scan_);
-  scan_ptr_ = boost::make_shared< pcl::PointCloud<PointT> >(scan_);
-  int scan_points_num = scan_ptr_->size();
+  boost::shared_ptr< pcl::PointCloud<PointT> > scan_ptr(new pcl::PointCloud<PointT>(scan_));
+
+  int scan_points_num = scan_ptr->size();
   std::cout << "scan_points_num" << scan_points_num << std::endl;
   // Setting point cloud to be aligned.
-  ndt_.setInputSource(scan_ptr_);
+  ndt_.setInputSource(scan_ptr);
 
   std_msgs::Time current_time;
   current_time.data = input->header.stamp;
   static std_msgs::Time previous_time = current_time;
-  std::cout << __LINE__ << std::endl;
 
   pose_corrector_msgs::Request req;
-  std_msgs::Header header;
-  static int seq_count = 0;
-  header.frame_id = "/map";
-  header.seq = seq_count++;  //TODO: pointcloud seq
-  header.stamp = current_scan_time_;
-  req.pose = convertPosetoROSMsg(header, current_pose_);
+  req.pose = convertPosetoROSMsg(current_scan_header_, current_pose_);
   req.previous_time = previous_time;
   req.current_time = current_time;
-  std::cout << __LINE__ << std::endl;
   pose_corrector_pub_.publish(req);
-  std::cout << __LINE__ << std::endl;
 
   previous_time = current_time;
-  is_received_points = true;
 }
 
 
@@ -714,21 +720,26 @@ template <class PointT>
 void NDTLocalizer<PointT>::poseCorrectorCallback(const pose_corrector_msgs::Response::ConstPtr& input)
 {
   std::cout << __func__ << std::endl;
-  if(map_loaded_ == false || init_pos_set_ == false || is_received_points == false)
+
+  //TODO: synchronize to points
+  if(input->pose.header.stamp != current_scan_header_.stamp)
+  {
+    ROS_INFO("received pose correct. But its different to points stamp");
     return;
-  
-  is_received_points = false;
+  }
+
   auto matching_start = std::chrono::system_clock::now();
 
   predict_pose_ = convertROSMsgtoPose(input);
-
   matching();
   calcStats();
   calcPoses();
   calcVelocities();
-  
+
   auto matching_end = std::chrono::system_clock::now();
   exe_time_ = std::chrono::duration_cast<std::chrono::microseconds>(matching_end - matching_start).count() / 1000.0;
+
+  outputLogs();
 
   previous_pose_ = current_pose_;
 }
@@ -749,31 +760,26 @@ void NDTLocalizer<PointT>::matching()
   if (use_openmp_ == true)
   {
     align_start = std::chrono::system_clock::now();
-  std::cout << __LINE__ << std::endl;
     ndt_.omp_align(*output_cloud, init_guess);
-  std::cout << __LINE__ << std::endl;
     align_end = std::chrono::system_clock::now();
   }
   else
   {
 #endif
     align_start = std::chrono::system_clock::now();
-  std::cout << __LINE__ << std::endl;
     ndt_.align(*output_cloud, init_guess);
-  std::cout << __LINE__ << std::endl;
     align_end = std::chrono::system_clock::now();
 #ifdef USE_FAST_PCL
   }
 #endif
 
-  const double align_time = std::chrono::duration_cast<std::chrono::microseconds>(align_end - align_start).count() / 1000.0;
+  align_time_ = std::chrono::duration_cast<std::chrono::microseconds>(align_end - align_start).count() / 1000.0;
 
 }
 
 template <class PointT>
 void NDTLocalizer<PointT>::calcStats()
 {
-  const int iteration = ndt_.getFinalNumIteration();
 
   std::chrono::time_point<std::chrono::system_clock> getFitnessScore_start, getFitnessScore_end;
   double fitness_score_;
@@ -793,14 +799,15 @@ void NDTLocalizer<PointT>::calcStats()
 #ifdef USE_FAST_PCL
   }
 #endif
-  const double getFitnessScore_time = std::chrono::duration_cast<std::chrono::microseconds>(getFitnessScore_end - getFitnessScore_start).count() / 1000.0;
+  getFitnessScore_time_ = std::chrono::duration_cast<std::chrono::microseconds>(getFitnessScore_end - getFitnessScore_start).count() / 1000.0;
 
 
+  const int iteration = ndt_.getFinalNumIteration();
   double trans_probability_ = ndt_.getTransformationProbability();
 
   // Set values for /ndt_stat
   ndt_localizer::ndt_stat ndt_stat_msg;
-  ndt_stat_msg.header.stamp = current_scan_time_;
+  ndt_stat_msg.header = current_scan_header_;
   ndt_stat_msg.exe_time = time_ndt_matching_.data;
   ndt_stat_msg.iteration = iteration;
   ndt_stat_msg.score = fitness_score_;
@@ -810,11 +817,10 @@ void NDTLocalizer<PointT>::calcStats()
 
   ndt_stat_pub_.publish(ndt_stat_msg);
 
-  // Compute NDT_Reliability
-  std_msgs::Float32 ndt_reliability;
-  ndt_reliability.data = Wa * (exe_time_ / 100.0) * 100.0 + Wb * (iteration / 10.0) * 100.0 +
+  // Compute ndt_reliability
+  ndt_reliability_.data = Wa * (exe_time_ / 100.0) * 100.0 + Wb * (iteration / 10.0) * 100.0 +
                            Wc * ((2.0 - trans_probability_) / 2.0) * 100.0;
-  ndt_reliability_pub_.publish(ndt_reliability);
+  ndt_reliability_pub_.publish(ndt_reliability_);
 
 }
 
@@ -846,13 +852,13 @@ void NDTLocalizer<PointT>::calcPoses()
   mat_b.getRPY(ndt_pose_.roll, ndt_pose_.pitch, ndt_pose_.yaw, 1);
 
   // Calculate the difference between ndt_pose_ and predict_pose_
-  const double predict_pose_error = sqrt((ndt_pose_.x - predict_pose_.x) * (ndt_pose_.x - predict_pose_.x) +
+  predict_pose_error_ = sqrt((ndt_pose_.x - predict_pose_.x) * (ndt_pose_.x - predict_pose_.x) +
                               (ndt_pose_.y - predict_pose_.y) * (ndt_pose_.y - predict_pose_.y) +
                               (ndt_pose_.z - predict_pose_.z) * (ndt_pose_.z - predict_pose_.z));
 
   //TODO: use_predict_pose is not uesed
   int use_predict_pose;
-  if (predict_pose_error <= PREDICT_POSE_THRESHOLD)
+  if (predict_pose_error_ <= PREDICT_POSE_THRESHOLD)
     use_predict_pose = 0;
   else
     use_predict_pose = 1;
@@ -863,39 +869,33 @@ void NDTLocalizer<PointT>::calcPoses()
   else
     current_pose_ = predict_pose_;
 
-  std_msgs::Header header;
-  static int seq_count = 0;
-  header.frame_id = "/map";
-  header.seq = seq_count++;  //TODO: pointcloud seq
-  header.stamp = current_scan_time_;
-
   geometry_msgs::PoseStamped predict_pose_msg 
     = use_local_transform_== true 
-    ? convertPosetoROSMsg(header, predict_pose_, local_transform_) 
-    : convertPosetoROSMsg(header, predict_pose_);
+    ? convertPosetoROSMsg(current_scan_header_, predict_pose_, local_transform_) 
+    : convertPosetoROSMsg(current_scan_header_, predict_pose_);
   predict_pose_pub_.publish(predict_pose_msg);
 
   geometry_msgs::PoseStamped ndt_pose_msg
     = use_local_transform_== true 
-    ? convertPosetoROSMsg(header, ndt_pose_, local_transform_) 
-    : convertPosetoROSMsg(header, ndt_pose_);
+    ? convertPosetoROSMsg(current_scan_header_, ndt_pose_, local_transform_) 
+    : convertPosetoROSMsg(current_scan_header_, ndt_pose_);
   ndt_pose_pub_.publish(ndt_pose_msg);
-  
+
   tf::Quaternion current_q;
   current_q.setRPY(current_pose_.roll, current_pose_.pitch, current_pose_.yaw);
   /*
   // current_pose_ is published by vel_pose_mux
   geometry_msgs::PoseStamped current_pose_msg
     = use_local_transform_== true 
-    ? convertPosetoROSMsg(header, current_pose_, local_transform_) 
-    : convertPosetoROSMsg(header, current_pose_);
+    ? convertPosetoROSMsg(current_scan_header_, current_pose_, local_transform_) 
+    : convertPosetoROSMsg(current_scan_header_, current_pose_);
   current_pose_pub_.publish(current_pose_msg);
   */
 
   geometry_msgs::PoseStamped localizer_pose_msg
     = use_local_transform_== true 
-    ? convertPosetoROSMsg(header, localizer_pose_, local_transform_) 
-    : convertPosetoROSMsg(header, localizer_pose_);
+    ? convertPosetoROSMsg(current_scan_header_, localizer_pose_, local_transform_) 
+    : convertPosetoROSMsg(current_scan_header_, localizer_pose_);
   localizer_pose_pub_.publish(localizer_pose_msg);
 
   // Send TF "/base_link" to "/map"
@@ -917,9 +917,9 @@ void NDTLocalizer<PointT>::calcVelocities()
   const double time_diff_sec = (current_scan_time_ - previous_scan_time).toSec();
   current_velocity_.setVelocity(current_pose_, previous_pose_, time_diff_sec);
 
-  double current_velocity_smooth = (current_velocity_.linear.xyz + previous_velocity_.linear.xyz + previous_previous_velocity_.linear.xyz) / 3.0;
-  if(current_velocity_smooth < 0.2)
-    current_velocity_smooth = 0.0;
+  current_velocity_smooth_ = (current_velocity_.linear.xyz + previous_velocity_.linear.xyz + previous_previous_velocity_.linear.xyz) / 3.0;
+  if(current_velocity_smooth_ < 0.2)
+    current_velocity_smooth_ = 0.0;
 
   current_accel_.setAccel(current_velocity_, previous_velocity_, time_diff_sec);
 
@@ -935,7 +935,7 @@ void NDTLocalizer<PointT>::calcVelocities()
 
   // Set values for /estimate_twist
   geometry_msgs::TwistStamped estimate_twist_msg;
-  estimate_twist_msg.header.stamp = current_scan_time_;
+  estimate_twist_msg.header = current_scan_header_;
   estimate_twist_msg.header.frame_id = "/base_link";
   estimate_twist_msg.twist.linear.x = current_velocity_.linear.xyz;
   estimate_twist_msg.twist.linear.y = 0.0;
@@ -947,7 +947,7 @@ void NDTLocalizer<PointT>::calcVelocities()
   estimate_twist_pub_.publish(estimate_twist_msg);
 
   geometry_msgs::Vector3Stamped estimate_vel_msg;
-  estimate_vel_msg.header.stamp = current_scan_time_;
+  estimate_vel_msg.header = current_scan_header_;
   estimate_vel_msg.vector.x = current_velocity_.linear.xyz;
   estimated_vel_pub_.publish(estimate_vel_msg);
   
@@ -959,15 +959,14 @@ void NDTLocalizer<PointT>::calcVelocities()
 template <class PointT>
 void NDTLocalizer<PointT>::outputLogs()
 {
-/*
-  // Write log
   if (!ofs_)
   {
-    std::cerr << "Could not open " << filename << "." << std::endl;
+    //std::cerr << "Could not open " << fileame << "." << std::endl;
+    std::cerr << "Could not open log file." << std::endl;
     exit(1);
   }
 
-  ofs_ << input->header.seq << "," << scan_points_num << "," << step_size << "," << trans_eps << "," << std::fixed
+  ofs_ << current_scan_header_.seq << "," << scan_.size() << "," << step_size_ << "," << trans_eps_ << "," << std::fixed
        << std::setprecision(5) << current_pose_.x << "," << std::fixed << std::setprecision(5) << current_pose_.y << ","
        << std::fixed << std::setprecision(5) << current_pose_.z << "," << current_pose_.roll << "," << current_pose_.pitch
        << "," << current_pose_.yaw << "," << predict_pose_.x << "," << predict_pose_.y << "," << predict_pose_.z << ","
@@ -975,29 +974,27 @@ void NDTLocalizer<PointT>::outputLogs()
        << current_pose_.x - predict_pose_.x << "," << current_pose_.y - predict_pose_.y << ","
        << current_pose_.z - predict_pose_.z << "," << current_pose_.roll - predict_pose_.roll << ","
        << current_pose_.pitch - predict_pose_.pitch << "," << current_pose_.yaw - predict_pose_.yaw << ","
-       << predict_pose_error << "," << iteration << "," << fitness_score_ << "," << trans_probability_ << ","
-       << ndt_reliability.data << "," << current_velocity_.linear.xyz << "," << current_velocity_smooth << "," << current_accel_
-       << "," << current_velocity_.angular.z << "," << time_ndt_matching.data << "," << align_time << "," << getFitnessScore_time
+       << predict_pose_error_ << "," << ndt_.getFinalNumIteration() << "," << fitness_score_ << "," << trans_probability_ << ","
+       << ndt_reliability_.data << "," << current_velocity_.linear.xyz << "," << current_velocity_smooth_ << "," << current_accel_.linear.xyz
+       << "," << current_velocity_.angular.z << "," << time_ndt_matching_.data << "," << align_time_ << "," << getFitnessScore_time_
        << std::endl;
 
   std::cout << "-----------------------------------------------------------------" << std::endl;
-  std::cout << "Sequence: " << input->header.seq << std::endl;
-  std::cout << "Timestamp: " << input->header.stamp << std::endl;
-  std::cout << "Frame ID: " << input->header.frame_id << std::endl;
-  std::cout << "Number of Scan Points: " << scan_ptr->size() << " points." << std::endl;
-  std::cout << "Number of Filtered Scan Points: " << scan_points_num << " points." << std::endl;
+  std::cout << "Sequence: " << current_scan_header_.seq << std::endl;
+  std::cout << "Timestamp: " << current_scan_header_.stamp << std::endl;
+  std::cout << "Frame ID: " << current_scan_header_.frame_id << std::endl;
+  std::cout << "Number of Scan Points: " << scan_.size() << " points." << std::endl;
   std::cout << "NDT has converged: " << ndt_.hasConverged() << std::endl;
   std::cout << "Fitness Score: " << fitness_score_ << std::endl;
   std::cout << "Transformation Probability: " << ndt_.getTransformationProbability() << std::endl;
   std::cout << "Execution Time: " << exe_time_ << " ms." << std::endl;
   std::cout << "Number of Iterations: " << ndt_.getFinalNumIteration() << std::endl;
-  std::cout << "NDT Reliability: " << ndt_reliability.data << std::endl;
+  std::cout << "NDT Reliability: " << ndt_reliability_.data << std::endl;
   std::cout << "(x,y,z,roll,pitch,yaw): " << std::endl;
   std::cout << "(" << current_pose_.x << ", " << current_pose_.y << ", " << current_pose_.z 
             << ", " << current_pose_.roll << ", " << current_pose_.pitch << ", " << current_pose_.yaw << ")" << std::endl;
   std::cout << "Transformation Matrix: " << std::endl;
-  std::cout << t << std::endl;
+  std::cout << ndt_.getFinalTransformation() << std::endl;
   std::cout << "-----------------------------------------------------------------" << std::endl;
-*/
 
 }
