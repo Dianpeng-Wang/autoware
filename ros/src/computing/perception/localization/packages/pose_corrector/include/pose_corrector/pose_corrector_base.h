@@ -47,9 +47,10 @@
 #include "pose_corrector_msgs/Response.h"
 #include "pose_corrector_msgs/Service.h"
 
-
 //TODO: if not publish sensor topics -> segmentation falut
 //TODO: request.pose.pose.orientation == all 0 -> warning
+//TODO: dont describe the same codes at base class, use base class instance
+//TODO: use forward declaration, reduce include files
 
 class PoseCorrectorBase
 {
@@ -62,7 +63,7 @@ class PoseCorrectorBase
     bool srvCallback(pose_corrector_msgs::Service::Request& req, pose_corrector_msgs::Service::Response& res);
 
 
-//  private:
+  private:
     ros::NodeHandle nh_;
     ros::NodeHandle private_nh_;
     
