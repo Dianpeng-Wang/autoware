@@ -30,6 +30,13 @@ private:
 	void CloudClustersCallback(const autoware_msgs::CloudClusterArray::Ptr& in_cloud_cluster_array_ptr);
 };
 
+//TODO:
+//1. Sync:
+//    -Clusters
+//    -Image Detections
+//    -Image Frame
+//    -Extrinsic Calibration
+
 CameraLidarFuser::CameraLidarFuser() :
 		node_handle_("~")
 {
