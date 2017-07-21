@@ -106,7 +106,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
    INCLUDE_DIRS include
-#  LIBRARIES pose_corrector
+   LIBRARIES pose_corrector
    CATKIN_DEPENDS roscpp geometry_msgs sensor_msgs nav_msgs pose_corrector_msgs
 #  DEPENDS system_lib
 )
@@ -126,6 +126,15 @@ include_directories(
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/pose_corrector.cpp
 # )
+add_library(${PROJECT_NAME}
+  src/sub_imu.cpp
+  src/sub_odom.cpp
+  src/combine_sub_one.cpp
+  src/combine_sub_two.cpp
+  src/combine_imu_odom.cpp
+  src/pose_corrector.cpp
+)
+ 
 add_library(${PROJECT_NAME}_nodelet src/nodelet.cpp)
 
 ## Add cmake target dependencies of the library
@@ -136,7 +145,7 @@ add_library(${PROJECT_NAME}_nodelet src/nodelet.cpp)
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME} src/pose_corrector.cpp)
+add_executable(${PROJECT_NAME}_node src/node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -146,7 +155,13 @@ add_executable(${PROJECT_NAME} src/pose_corrector.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-add_dependencies(${PROJECT_NAME} 
+add_dependencies(${PROJECT_NAME}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  pose_corrector_msgs_generate_messages_cpp
+)
+
+add_dependencies(${PROJECT_NAME}_node
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   pose_corrector_msgs_generate_messages_cpp
@@ -156,14 +171,22 @@ add_dependencies(${PROJECT_NAME}_nodelet
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   pose_corrector_msgs_generate_messages_cpp
+  
 )
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
 )
+
+target_link_libraries(${PROJECT_NAME}_node
+  ${catkin_LIBRARIES}
+  ${PROJECT_NAME}
+)
+
 target_link_libraries(${PROJECT_NAME}_nodelet
   ${catkin_LIBRARIES}
+  ${PROJECT_NAME}
 )
 
 #############

@@ -51,42 +51,10 @@ class CombineSubOne : public CombineSubBase
      std::vector<geometry_msgs::TwistStamped> getCombinedArray() const override;
    
    protected:
-     virtual geometry_msgs::TwistStamped getCombinedData(const geometry_msgs::TwistStamped& data) const
-     {
-       return data;
-     };
-     
+     inline geometry_msgs::TwistStamped getCombinedData(const geometry_msgs::TwistStamped& data) const;
+          
    private:  
    boost::shared_ptr<const SubBase> sub_ptr_;
 };
-
-//Move cpp
-#include "pose_corrector/sub_base.h"
-
-CombineSubOne::CombineSubOne(const boost::shared_ptr<const SubBase>& sub) :
-    sub_ptr_(sub)
-{
-
-}
-
-CombineSubOne::~CombineSubOne()
-{
-
-}
-
-std::vector<geometry_msgs::TwistStamped> CombineSubOne::getCombinedArray() const
-{
-  std::vector<geometry_msgs::TwistStamped> combined_array;
-  
-  auto queue = sub_ptr_->getQueue();
-  
-  for(const auto& data :queue)
-  {
-    auto d = getCombinedData(data);
-    combined_array.push_back(d);
-  }
-
-  return combined_array;
-}
 
 #endif

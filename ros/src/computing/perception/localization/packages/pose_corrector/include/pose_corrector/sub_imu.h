@@ -45,28 +45,7 @@ class SubImu : public SubBaseTemplate<sensor_msgs::Imu>
     ~SubImu() override;
 
   private:
-    geometry_msgs::TwistStamped convertToTwistStamped(const boost::shared_ptr<const sensor_msgs::Imu>& input_msgs) const override
-    {
-      geometry_msgs::TwistStamped tmp;
-      tmp.header        = input_msgs->header;
-      tmp.twist.linear  = input_msgs->linear_acceleration;
-      tmp.twist.angular = input_msgs->angular_velocity;
-      return tmp;
-    };
-
+    geometry_msgs::TwistStamped convertToTwistStamped(const boost::shared_ptr<const sensor_msgs::Imu>& input_msgs) const override;
 };
-
-//TODO: Move to cpp
-
-SubImu::SubImu(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, std::string topic_name) : 
-   SubBaseTemplate(nh, private_nh, topic_name)
-{
-}
-
-SubImu::~SubImu()
-{
-}
-
-
 
 #endif

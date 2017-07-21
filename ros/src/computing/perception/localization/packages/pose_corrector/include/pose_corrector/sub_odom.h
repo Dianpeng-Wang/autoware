@@ -45,26 +45,8 @@ class SubOdom : public SubBaseTemplate<nav_msgs::Odometry>
     ~SubOdom() override;
 
   private:
-    geometry_msgs::TwistStamped convertToTwistStamped(const boost::shared_ptr<const nav_msgs::Odometry>& input_msgs) const override
-  {
-    geometry_msgs::TwistStamped tmp;
-    tmp.header = input_msgs->header;
-    tmp.twist = input_msgs->twist.twist;
-    return tmp;
-  };
+    geometry_msgs::TwistStamped convertToTwistStamped(const boost::shared_ptr<const nav_msgs::Odometry>& input_msgs) const override;
 
 };
-
-//TODO: Move to cpp
-
-SubOdom::SubOdom(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, std::string topic_name) : 
-   SubBaseTemplate(nh, private_nh, topic_name)
-{
-}
-
-SubOdom::~SubOdom()
-{
-}
-
 
 #endif

@@ -28,23 +28,118 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <cmath>
+#include <vector>
+#include <deque>
+#include <chrono>
+
 #include <ros/ros.h>
+#include <tf/tf.h>
+#include <geometry_msgs/TwistStamped.h>
+#include <sensor_msgs/PointCloud2.h>
 
 #include <boost/shared_ptr.hpp>
 
-#include "pose_corrector/combine_imu_odom.h"
+#include "pose_corrector_msgs/Request.h"
+#include "pose_corrector_msgs/Response.h"
+#include "pose_corrector_msgs/Service.h"
+
 #include "pose_corrector/pose_corrector.h"
+#include "pose_corrector/combine_sub_base.h"
 
-int main(int argc, char** argv)
+PoseCorrector::PoseCorrector(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, const boost::shared_ptr<const CombineSubBase>& combine_sub_base_ptr) :
+     nh_(nh)
+    ,private_nh_(private_nh)
+    ,combine_sub_base_ptr_(combine_sub_base_ptr)
 {
-  ros::init(argc, argv, "pose_corrector");
-  ros::NodeHandle nh;
-  ros::NodeHandle private_nh("~");
+  sub_ = nh_.subscribe("/pose_corrector_request", 10, &PoseCorrector::subCallback, this);
+  pub_ = nh_.advertise<pose_corrector_msgs::Response>("/pose_corrector_response", 10, this);
+  srv_= nh_.advertiseService("/pose_corrector_service", &PoseCorrector::srvCallback, this);
+}
 
-  boost::shared_ptr<const CombineImuOdom> combine_imu_odom = boost::make_shared<const CombineImuOdom>(nh, private_nh, "/imu_raw", "/odom_pose");
-  PoseCorrector pose_corrector(nh, private_nh, combine_imu_odom);
+PoseCorrector::~PoseCorrector()
+{
+}
 
-  ros::spin();
-  return 0;
+void PoseCorrector::subCallback(const pose_corrector_msgs::Request::ConstPtr& req)
+{
+  pose_corrector_msgs::Response res;
+  
+  std::chrono::time_point<std::chrono::system_clock> srv_start = std::chrono::system_clock::now();
+  res.pose = calc(req->pose, req->previous_time.data, req->current_time.data);
+  std::chrono::time_point<std::chrono::system_clock> srv_end = std::chrono::system_clock::now();
+  
+  double srv_time = std::chrono::duration_cast<std::chrono::microseconds>(srv_end - srv_start).count() / 1000.0;
+  std::cout << "time: " << srv_time << std::endl;
+
+  pub_.publish(res);
+}
+
+bool PoseCorrector::srvCallback(pose_corrector_msgs::Service::Request& req, pose_corrector_msgs::Service::Response& res)
+{
+  std::chrono::time_point<std::chrono::system_clock> srv_start = std::chrono::system_clock::now();
+  res.pose = calc(req.pose, req.previous_time.data, req.current_time.data);
+  std::chrono::time_point<std::chrono::system_clock> srv_end = std::chrono::system_clock::now();
+
+  double srv_time = std::chrono::duration_cast<std::chrono::microseconds>(srv_end - srv_start).count() / 1000.0;
+  std::cout << "time: " << srv_time << std::endl;
+
+  return true;
+}
+
+geometry_msgs::PoseStamped PoseCorrector::calc(const geometry_msgs::PoseStamped& begin_pose, const ros::Time& begin_time, const ros::Time& end_time)
+{  
+  geometry_msgs::PoseStamped end_pose;
+  double x = 0,y = 0,z = 0;
+  double roll, pitch, yaw;
+  tf::Quaternion orientation;
+  tf::quaternionMsgToTF(begin_pose.pose.orientation, orientation);
+  tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
+
+  auto combined_array = combine_sub_base_ptr_->getCombinedArray();
+
+  for(auto it = std::begin(combined_array); it != std::end(combined_array); ++it)
+  {
+    if(it != std::begin(combined_array) && it->header.stamp > end_time)
+      break;
+
+    const auto it2 = (it != std::begin(combined_array) && it+1 != std::end(combined_array)) ? it+1 : it;
+    if(it+1 != std::end(combined_array) && it2->header.stamp < begin_time)
+      continue;
+
+    const ros::Time previous_time = (it != std::begin(combined_array) && it->header.stamp > begin_time) ? it->header.stamp : begin_time;
+    const ros::Time current_time  = (it+1 != std::end(combined_array) && it2->header.stamp < end_time) ? it2->header.stamp : end_time;
+
+    std::cout << std::fmod(it->header.stamp.toSec(), 100.0) 
+       << " " << std::fmod(previous_time.toSec(), 100.0)
+       << " " << std::fmod(it2->header.stamp.toSec(), 100.0) 
+       << " " << std::fmod(current_time.toSec(), 100.0)
+       << std::endl;
+
+    const double diff_time = (current_time - previous_time).toSec();
+    assert(diff_time >= 0);
+
+    roll  += it2->twist.angular.x * diff_time;
+    pitch += it2->twist.angular.y * diff_time;
+    yaw   += it2->twist.angular.z * diff_time;
+
+    const double dis = (it2->twist.linear.x + it2->twist.linear.y + it2->twist.linear.z) * diff_time;
+    x += dis*cos(-pitch)*cos(yaw);
+    y += dis*cos(-pitch)*sin(yaw);
+    z += dis*sin(-pitch);
+
+//    x += dis          *cos(pitch)*cos(yaw);
+//    y += dis*sin(roll)           *sin(yaw);
+//    z += dis*cos(roll)*sin(pitch);
+  }
+
+  end_pose.header = begin_pose.header;
+  end_pose.header.stamp = end_time;
+  end_pose.pose.position.x = begin_pose.pose.position.x + x;
+  end_pose.pose.position.y = begin_pose.pose.position.y + y;
+  end_pose.pose.position.z = begin_pose.pose.position.z + z;
+  end_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(roll, pitch, yaw);
+
+  return end_pose;
 }
 

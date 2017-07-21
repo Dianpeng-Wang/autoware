@@ -28,53 +28,60 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
-#ifndef POSE_CORRECTOR_H
-#define POSE_CORRECTOR_H
-
-#include <cmath>
 #include <vector>
 #include <deque>
-#include <chrono>
 
 #include <ros/ros.h>
-#include <tf/tf.h>
 #include <geometry_msgs/TwistStamped.h>
-#include <sensor_msgs/PointCloud2.h>
 
 #include <boost/shared_ptr.hpp>
 
-#include "pose_corrector_msgs/Request.h"
-#include "pose_corrector_msgs/Response.h"
-#include "pose_corrector_msgs/Service.h"
+#include "pose_corrector/combine_sub_two.h"
+#include "pose_corrector/combine_sub_base.h"
+#include "pose_corrector/sub_base.h"
 
-//TODO: if not publish sensor topics -> segmentation falut
-//TODO: request.pose.pose.orientation == all 0 -> warning
-//TODO: dont describe the same codes at base class, use base class instance
-//TODO: use forward declaration, reduce include files
-
-class CombineSubBase;
-
-class PoseCorrector
+CombineSubTwo::CombineSubTwo(const boost::shared_ptr<const SubBase>& sub1, const boost::shared_ptr<const SubBase>& sub2) :
+    sub1_ptr_(sub1)
+   ,sub2_ptr_(sub2)
 {
-  public:
-    PoseCorrector(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, const boost::shared_ptr<const CombineSubBase>& combine_sub_base_ptr);
-    virtual ~PoseCorrector();
-    geometry_msgs::PoseStamped calc(const geometry_msgs::PoseStamped& begin_pose, const ros::Time& begin_time, const ros::Time& end_time);
+}
 
-    void subCallback(const pose_corrector_msgs::Request::ConstPtr& req);
-    bool srvCallback(pose_corrector_msgs::Service::Request& req, pose_corrector_msgs::Service::Response& res);
+CombineSubTwo::~CombineSubTwo()
+{
+}
 
-  private:
-    ros::NodeHandle nh_;
-    ros::NodeHandle private_nh_;
-    
-    ros::Subscriber sub_;
-    ros::Publisher pub_;
-    ros::ServiceServer srv_;
+std::vector<geometry_msgs::TwistStamped> CombineSubTwo::getCombinedArray() const
+{
+  std::vector<geometry_msgs::TwistStamped> combined_array;
+  auto queue1 = sub1_ptr_->getQueue();
+  auto queue2 = sub2_ptr_->getQueue();
+  
+  auto it1 = std::begin(queue1);
+  auto it2 = std::begin(queue2);
 
-    boost::shared_ptr<const CombineSubBase> combine_sub_base_ptr_;
-    
-};
+  ros::Time time = it1->header.stamp < it2->header.stamp ? it1->header.stamp : it2->header.stamp;
+  while(1)
+  {
+    auto tmp = getCombinedData(*it1, *it2);
+    tmp.header.stamp = time;
+    //std::cout << std::fmod(time.toSec(), 100.0) << std::endl;
+    combined_array.push_back(tmp);
 
-#endif
+    if(it1+1 == std::end(queue1) && it2+1 == std::end(queue2))
+      break;
+    else if( it2+1 == std::end(queue2) 
+          || ( it1+1 != std::end(queue1) 
+            && (it1+1)->header.stamp < (it2+1)->header.stamp))
+    {
+      ++it1;
+      time = it1->header.stamp;
+    }
+    else
+    {
+      ++it2;
+      time = it2->header.stamp;
+    }
+  }
+  return combined_array;
+}
+

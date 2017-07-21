@@ -28,53 +28,32 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
-#ifndef POSE_CORRECTOR_H
-#define POSE_CORRECTOR_H
-
-#include <cmath>
-#include <vector>
-#include <deque>
-#include <chrono>
+#include <string>
 
 #include <ros/ros.h>
-#include <tf/tf.h>
 #include <geometry_msgs/TwistStamped.h>
-#include <sensor_msgs/PointCloud2.h>
 
 #include <boost/shared_ptr.hpp>
 
-#include "pose_corrector_msgs/Request.h"
-#include "pose_corrector_msgs/Response.h"
-#include "pose_corrector_msgs/Service.h"
+#include "pose_corrector/combine_imu_odom.h"
+#include "pose_corrector/combine_sub_two.h"
+#include "pose_corrector/sub_imu.h"
+#include "pose_corrector/sub_odom.h"
 
-//TODO: if not publish sensor topics -> segmentation falut
-//TODO: request.pose.pose.orientation == all 0 -> warning
-//TODO: dont describe the same codes at base class, use base class instance
-//TODO: use forward declaration, reduce include files
-
-class CombineSubBase;
-
-class PoseCorrector
+CombineImuOdom::CombineImuOdom(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, const std::string imu_topic_name, const std::string odom_topic_name) :
+   CombineSubTwo(boost::make_shared<const SubImu>(nh, private_nh, imu_topic_name), boost::make_shared<const SubOdom>(nh, private_nh, odom_topic_name))
 {
-  public:
-    PoseCorrector(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, const boost::shared_ptr<const CombineSubBase>& combine_sub_base_ptr);
-    virtual ~PoseCorrector();
-    geometry_msgs::PoseStamped calc(const geometry_msgs::PoseStamped& begin_pose, const ros::Time& begin_time, const ros::Time& end_time);
+}
 
-    void subCallback(const pose_corrector_msgs::Request::ConstPtr& req);
-    bool srvCallback(pose_corrector_msgs::Service::Request& req, pose_corrector_msgs::Service::Response& res);
+CombineImuOdom::~CombineImuOdom()
+{
+}
 
-  private:
-    ros::NodeHandle nh_;
-    ros::NodeHandle private_nh_;
-    
-    ros::Subscriber sub_;
-    ros::Publisher pub_;
-    ros::ServiceServer srv_;
+inline geometry_msgs::TwistStamped CombineImuOdom::getCombinedData(const geometry_msgs::TwistStamped& imu_data, const geometry_msgs::TwistStamped& odom_data) const
+{
+  geometry_msgs::TwistStamped tmp;
+  tmp.twist.linear = odom_data.twist.linear;
+  tmp.twist.angular = imu_data.twist.angular;
+  return tmp;
+}
 
-    boost::shared_ptr<const CombineSubBase> combine_sub_base_ptr_;
-    
-};
-
-#endif

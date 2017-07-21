@@ -28,53 +28,23 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
-#ifndef POSE_CORRECTOR_H
-#define POSE_CORRECTOR_H
-
-#include <cmath>
-#include <vector>
-#include <deque>
-#include <chrono>
-
 #include <ros/ros.h>
-#include <tf/tf.h>
-#include <geometry_msgs/TwistStamped.h>
-#include <sensor_msgs/PointCloud2.h>
 
 #include <boost/shared_ptr.hpp>
 
-#include "pose_corrector_msgs/Request.h"
-#include "pose_corrector_msgs/Response.h"
-#include "pose_corrector_msgs/Service.h"
+#include "pose_corrector/combine_imu_odom.h"
+#include "pose_corrector/pose_corrector.h"
 
-//TODO: if not publish sensor topics -> segmentation falut
-//TODO: request.pose.pose.orientation == all 0 -> warning
-//TODO: dont describe the same codes at base class, use base class instance
-//TODO: use forward declaration, reduce include files
-
-class CombineSubBase;
-
-class PoseCorrector
+int main(int argc, char** argv)
 {
-  public:
-    PoseCorrector(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, const boost::shared_ptr<const CombineSubBase>& combine_sub_base_ptr);
-    virtual ~PoseCorrector();
-    geometry_msgs::PoseStamped calc(const geometry_msgs::PoseStamped& begin_pose, const ros::Time& begin_time, const ros::Time& end_time);
+  ros::init(argc, argv, "pose_corrector");
+  ros::NodeHandle nh;
+  ros::NodeHandle private_nh("~");
 
-    void subCallback(const pose_corrector_msgs::Request::ConstPtr& req);
-    bool srvCallback(pose_corrector_msgs::Service::Request& req, pose_corrector_msgs::Service::Response& res);
+  boost::shared_ptr<const CombineImuOdom> combine_imu_odom = boost::make_shared<const CombineImuOdom>(nh, private_nh, "/imu_raw", "/odom_pose");
+  PoseCorrector pose_corrector(nh, private_nh, combine_imu_odom);
 
-  private:
-    ros::NodeHandle nh_;
-    ros::NodeHandle private_nh_;
-    
-    ros::Subscriber sub_;
-    ros::Publisher pub_;
-    ros::ServiceServer srv_;
+  ros::spin();
+  return 0;
+}
 
-    boost::shared_ptr<const CombineSubBase> combine_sub_base_ptr_;
-    
-};
-
-#endif

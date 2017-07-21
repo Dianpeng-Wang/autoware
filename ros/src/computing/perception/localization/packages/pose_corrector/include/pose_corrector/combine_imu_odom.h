@@ -46,27 +46,8 @@ class CombineImuOdom : public CombineSubTwo
     CombineImuOdom(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, const std::string imu_topic_name, const std::string odom_topic_name);
     ~CombineImuOdom() override;
   private:
-    geometry_msgs::TwistStamped getCombinedData(const geometry_msgs::TwistStamped& imu_data, const geometry_msgs::TwistStamped& odom_data) const override
-    {
-      geometry_msgs::TwistStamped tmp;
-      tmp.twist.linear = odom_data.twist.linear;
-      tmp.twist.angular = imu_data.twist.angular;
-      return tmp;
-    };
+    geometry_msgs::TwistStamped getCombinedData(const geometry_msgs::TwistStamped& imu_data, const geometry_msgs::TwistStamped& odom_data) const override;
     
 };
-
-//Move cpp
-#include "pose_corrector/sub_imu.h"
-#include "pose_corrector/sub_odom.h"
-
-CombineImuOdom::CombineImuOdom(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, const std::string imu_topic_name, const std::string odom_topic_name) :
-   CombineSubTwo(boost::make_shared<const SubImu>(nh, private_nh, imu_topic_name), boost::make_shared<const SubOdom>(nh, private_nh, odom_topic_name))
-{
-}
-
-CombineImuOdom::~CombineImuOdom()
-{
-}
 
 #endif
