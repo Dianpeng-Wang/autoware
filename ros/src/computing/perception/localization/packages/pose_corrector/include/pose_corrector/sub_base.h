@@ -31,11 +31,8 @@
 #ifndef SUB_BASE_H
 #define SUB_BASE_H
 
-#include <iostream>
-#include <string>
 #include <deque>
 
-#include <ros/ros.h>
 #include <geometry_msgs/TwistStamped.h>
 
 
@@ -43,7 +40,6 @@ class SubBase
 {
   public:
     virtual ~SubBase() {};
-    virtual geometry_msgs::TwistStamped convertToTwistStamped() = 0;
     virtual std::deque<geometry_msgs::TwistStamped> getQueue() const = 0;
 };
 

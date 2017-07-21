@@ -28,8 +28,8 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef SUB_TEMPLATE_H
-#define SUB_TEMPLATE_H
+#ifndef SUB_BASE_TEMPLATE_H
+#define SUB_BASE_TEMPLATE_H
 
 #include <iostream>
 #include <string>
@@ -38,19 +38,20 @@
 #include <ros/ros.h>
 #include <geometry_msgs/TwistStamped.h>
 
+#include <boost/shared_ptr.hpp>
+
 #include "pose_corrector/sub_base.h"
 
 template <class T>
-class SubTemplate : public SubBase
+class SubBaseTemplate : public SubBase
 {
   public:
-    SubTemplate(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, std::string topic_name);
-    virtual ~SubTemplate() override;
-    //virtual geometry_msgs::TwistStamped convertToTwistStamped(const boost::shared_ptr<const T>& input_msgs) override;
+    SubBaseTemplate(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, std::string topic_name);
+    virtual ~SubBaseTemplate() override;
     std::deque<geometry_msgs::TwistStamped> getQueue() const override { return queue_; };
     
   protected:
-    T input_msgs_;  //TODO: remove
+    virtual geometry_msgs::TwistStamped convertToTwistStamped(const boost::shared_ptr<const T>& input_msgs) const = 0;
 
   private:
     void subCallback(const boost::shared_ptr<const T>& input_msgs);
@@ -62,25 +63,24 @@ class SubTemplate : public SubBase
     std::string topic_name_;
     std::deque<geometry_msgs::TwistStamped> queue_;
 
-
 };
 
 template <class T>
-SubTemplate<T>::SubTemplate(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, std::string topic_name) :
+SubBaseTemplate<T>::SubBaseTemplate(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, std::string topic_name) :
      nh_(nh)
     ,private_nh_(private_nh)
     ,topic_name_(topic_name)
 {
-  sub_ = nh_.subscribe(topic_name_, 1, &SubTemplate::subCallback, this);
+  sub_ = nh_.subscribe(topic_name_, 10, &SubBaseTemplate::subCallback, this);
 }
 
 template <class T>
-SubTemplate<T>::~SubTemplate()
+SubBaseTemplate<T>::~SubBaseTemplate()
 {
 }
 
 template <class T>
-void SubTemplate<T>::subCallback(const boost::shared_ptr<const T>& input_msgs)
+void SubBaseTemplate<T>::subCallback(const boost::shared_ptr<const T>& input_msgs)
 {
   //This Code is not support when restarting with changing start time
   if(!queue_.empty() && queue_.front().header.stamp >= input_msgs->header.stamp)
@@ -89,9 +89,7 @@ void SubTemplate<T>::subCallback(const boost::shared_ptr<const T>& input_msgs)
     queue_.clear();
   }
 
-  input_msgs_ = *input_msgs;
-  auto tmp = convertToTwistStamped();
-  //auto tmp = convertToTwistStamped(input_msgs);
+  auto tmp = convertToTwistStamped(input_msgs);
   queue_.push_back(tmp);
 
   while(queue_.back().header.stamp - queue_.front().header.stamp > ros::Duration(5.0))

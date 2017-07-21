@@ -34,37 +34,36 @@
 #include <ros/ros.h>
 #include <nav_msgs/Odometry.h>
 
-#include "pose_corrector/sub_template.h"
+#include <boost/shared_ptr.hpp>
 
-class SubOdom : public SubTemplate<nav_msgs::Odometry>
+#include "pose_corrector/sub_base_template.h"
+
+class SubOdom : public SubBaseTemplate<nav_msgs::Odometry>
 {
   public:
     SubOdom(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, std::string topic_name);
     ~SubOdom() override;
+
   private:
-    //geometry_msgs::TwistStamped convertToTwistStamped(const boost::shared_ptr<const nav_msgs::Odometry>& input_msgs) override;
-    geometry_msgs::TwistStamped convertToTwistStamped() override;
+    geometry_msgs::TwistStamped convertToTwistStamped(const boost::shared_ptr<const nav_msgs::Odometry>& input_msgs) const override
+  {
+    geometry_msgs::TwistStamped tmp;
+    tmp.header = input_msgs->header;
+    tmp.twist = input_msgs->twist.twist;
+    return tmp;
+  };
 
 };
 
 //TODO: Move to cpp
 
 SubOdom::SubOdom(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, std::string topic_name) : 
-   SubTemplate(nh, private_nh, topic_name)
+   SubBaseTemplate(nh, private_nh, topic_name)
 {
 }
 
 SubOdom::~SubOdom()
 {
-}
-
-//geometry_msgs::TwistStamped SubOdom::convertToTwistStamped(const boost::shared_ptr<const nav_msgs::Odometry>& input_msgs)
-geometry_msgs::TwistStamped SubOdom::convertToTwistStamped()
-{
-  geometry_msgs::TwistStamped tmp;
-  tmp.header = input_msgs_.header;
-  tmp.twist = input_msgs_.twist.twist;
-  return tmp;
 }
 
 

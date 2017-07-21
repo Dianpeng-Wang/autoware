@@ -32,8 +32,10 @@
 #include <nodelet/nodelet.h>
 #include <pluginlib/class_list_macros.h>
 
-#include "pose_corrector/merge_imu_odom.h"
-#include "pose_corrector/pose_corrector_base.h"
+#include <boost/shared_ptr.hpp>
+
+#include "pose_corrector/combine_imu_odom.h"
+#include "pose_corrector/pose_corrector.h"
 
 class PoseCorrectorNodelet : public nodelet::Nodelet
 {
@@ -44,14 +46,14 @@ class PoseCorrectorNodelet : public nodelet::Nodelet
   
     virtual void onInit()
     {
-      merge_base_ptr_.reset(new MergeImuOdom(getNodeHandle(), getPrivateNodeHandle(), "imu_raw", "odom_pose"));
-      pose_corrector_ptr_.reset(new PoseCorrectorBase(getNodeHandle(), getPrivateNodeHandle(), merge_base_ptr_));
+      combine_sub_base_ptr_.reset(new CombineImuOdom(getNodeHandle(), getPrivateNodeHandle(), "imu_raw", "odom_pose"));
+      pose_corrector_ptr_.reset(new PoseCorrector(getNodeHandle(), getPrivateNodeHandle(), combine_sub_base_ptr_));
 
     }
 
   private:
-    boost::shared_ptr<MergeBase> merge_base_ptr_;
-    boost::shared_ptr<PoseCorrectorBase> pose_corrector_ptr_;
+    boost::shared_ptr<CombineSubBase> combine_sub_base_ptr_;
+    boost::shared_ptr<PoseCorrector> pose_corrector_ptr_;
 };
 
 PLUGINLIB_EXPORT_CLASS(PoseCorrectorNodelet, nodelet::Nodelet)

@@ -28,8 +28,8 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef MERGE_BASE_ONE_H
-#define MERGE_BASE_ONE_H
+#ifndef COMBINE_SUB_ONE_H
+#define COMBINE_SUB_ONE_H
 
 #include <vector>
 #include <deque>
@@ -37,47 +37,56 @@
 #include <ros/ros.h>
 #include <geometry_msgs/TwistStamped.h>
 
-#include "pose_corrector/sub_base.h"
+#include <boost/shared_ptr.hpp>
 
-class MergeBaseOne : public MergeBase
+#include "pose_corrector/combine_sub_base.h"
+
+class SubBase;
+
+class CombineSubOne : public CombineSubBase
 {
   public:
-    MergeBaseOne(const boost::shared_ptr<const SubBase>& sub);
-    ~MergeBaseOne() override;
-     geometry_msgs::TwistStamped mergeData(const geometry_msgs::TwistStamped& data) const
+    CombineSubOne(const boost::shared_ptr<const SubBase>& sub);
+    ~CombineSubOne() override;
+     std::vector<geometry_msgs::TwistStamped> getCombinedArray() const override;
+   
+   protected:
+     virtual geometry_msgs::TwistStamped getCombinedData(const geometry_msgs::TwistStamped& data) const
      {
        return data;
-     }
-     std::vector<geometry_msgs::TwistStamped> mergeQueue() const override;
-   
-   private:
-     boost::shared_ptr<const SubBase> sub_ptr_;
+     };
+     
+   private:  
+   boost::shared_ptr<const SubBase> sub_ptr_;
 };
 
-MergeBaseOne::MergeBaseOne(const boost::shared_ptr<const SubBase>& sub) :
+//Move cpp
+#include "pose_corrector/sub_base.h"
+
+CombineSubOne::CombineSubOne(const boost::shared_ptr<const SubBase>& sub) :
     sub_ptr_(sub)
 {
 
 }
 
-MergeBaseOne::~MergeBaseOne()
+CombineSubOne::~CombineSubOne()
 {
 
 }
 
-std::vector<geometry_msgs::TwistStamped> MergeBaseOne::mergeQueue() const
+std::vector<geometry_msgs::TwistStamped> CombineSubOne::getCombinedArray() const
 {
-  std::vector<geometry_msgs::TwistStamped> merged_array;
+  std::vector<geometry_msgs::TwistStamped> combined_array;
   
   auto queue = sub_ptr_->getQueue();
   
   for(const auto& data :queue)
   {
-    auto d = mergeData(data);
-    merged_array.push_back(d);
+    auto d = getCombinedData(data);
+    combined_array.push_back(d);
   }
 
-  return merged_array;
+  return combined_array;
 }
 
 #endif

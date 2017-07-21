@@ -28,20 +28,18 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef MERGE_BASE_H
-#define MERGE_BASE_H
+#ifndef COMBINE_SUB_BASE_H
+#define COMBINE_SUB_BASE_H
 
 #include <vector>
 
-#include <ros/ros.h>
 #include <geometry_msgs/TwistStamped.h>
 
-class MergeBase
+class CombineSubBase
 {
   public:
-    virtual ~MergeBase() {};
-    //virtual geometry_msgs::TwistStamped mergeData() const = 0;
-    virtual std::vector<geometry_msgs::TwistStamped> mergeQueue() const = 0;
+    virtual ~CombineSubBase() {};
+    virtual std::vector<geometry_msgs::TwistStamped> getCombinedArray() const = 0;
 };
 
 #endif

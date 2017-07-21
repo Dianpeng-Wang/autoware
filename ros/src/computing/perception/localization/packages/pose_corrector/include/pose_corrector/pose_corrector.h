@@ -29,7 +29,7 @@
 */
 
 
-#ifndef POSE_CORRECTOR_BASE_H
+#ifndef POSE_CORRECTOR_H
 #define POSE_CORRECTOR_BASE_H
 
 #include <cmath>
@@ -42,7 +42,8 @@
 #include <geometry_msgs/TwistStamped.h>
 #include <sensor_msgs/PointCloud2.h>
 
-#include "pose_corrector/merge_base.h"
+#include <boost/shared_ptr.hpp>
+
 #include "pose_corrector_msgs/Request.h"
 #include "pose_corrector_msgs/Response.h"
 #include "pose_corrector_msgs/Service.h"
@@ -52,16 +53,17 @@
 //TODO: dont describe the same codes at base class, use base class instance
 //TODO: use forward declaration, reduce include files
 
-class PoseCorrectorBase
+class CombineSubBase;
+
+class PoseCorrector
 {
   public:
-    PoseCorrectorBase(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, const boost::shared_ptr<const MergeBase>& merge_base_ptr);
-    virtual ~PoseCorrectorBase();
+    PoseCorrector(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, const boost::shared_ptr<const CombineSubBase>& combine_sub_base_ptr);
+    virtual ~PoseCorrector();
     geometry_msgs::PoseStamped calc(const geometry_msgs::PoseStamped& begin_pose, const ros::Time& begin_time, const ros::Time& end_time);
 
     void subCallback(const pose_corrector_msgs::Request::ConstPtr& req);
     bool srvCallback(pose_corrector_msgs::Service::Request& req, pose_corrector_msgs::Service::Response& res);
-
 
   private:
     ros::NodeHandle nh_;
@@ -71,27 +73,28 @@ class PoseCorrectorBase
     ros::Publisher pub_;
     ros::ServiceServer srv_;
 
-    boost::shared_ptr<const MergeBase> merge_base_ptr_;
+    boost::shared_ptr<const CombineSubBase> combine_sub_base_ptr_;
     
 };
 
 //TODO: Move to cpp
+#include "pose_corrector/combine_sub_base.h"
 
-PoseCorrectorBase::PoseCorrectorBase(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, const boost::shared_ptr<const MergeBase>& merge_base_ptr) :
+PoseCorrector::PoseCorrector(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, const boost::shared_ptr<const CombineSubBase>& combine_sub_base_ptr) :
      nh_(nh)
     ,private_nh_(private_nh)
-    ,merge_base_ptr_(merge_base_ptr)
+    ,combine_sub_base_ptr_(combine_sub_base_ptr)
 {
-  sub_ = nh_.subscribe("/pose_corrector_request", 10, &PoseCorrectorBase::subCallback, this);
+  sub_ = nh_.subscribe("/pose_corrector_request", 10, &PoseCorrector::subCallback, this);
   pub_ = nh_.advertise<pose_corrector_msgs::Response>("/pose_corrector_response", 10, this);
-  srv_= nh_.advertiseService("/pose_corrector_service", &PoseCorrectorBase::srvCallback, this);
+  srv_= nh_.advertiseService("/pose_corrector_service", &PoseCorrector::srvCallback, this);
 }
 
-PoseCorrectorBase::~PoseCorrectorBase()
+PoseCorrector::~PoseCorrector()
 {
 }
 
-void PoseCorrectorBase::subCallback(const pose_corrector_msgs::Request::ConstPtr& req)
+void PoseCorrector::subCallback(const pose_corrector_msgs::Request::ConstPtr& req)
 {
   pose_corrector_msgs::Response res;
   
@@ -105,7 +108,7 @@ void PoseCorrectorBase::subCallback(const pose_corrector_msgs::Request::ConstPtr
   pub_.publish(res);
 }
 
-bool PoseCorrectorBase::srvCallback(pose_corrector_msgs::Service::Request& req, pose_corrector_msgs::Service::Response& res)
+bool PoseCorrector::srvCallback(pose_corrector_msgs::Service::Request& req, pose_corrector_msgs::Service::Response& res)
 {
   std::chrono::time_point<std::chrono::system_clock> srv_start = std::chrono::system_clock::now();
   res.pose = calc(req.pose, req.previous_time.data, req.current_time.data);
@@ -117,7 +120,7 @@ bool PoseCorrectorBase::srvCallback(pose_corrector_msgs::Service::Request& req, 
   return true;
 }
 
-geometry_msgs::PoseStamped PoseCorrectorBase::calc(const geometry_msgs::PoseStamped& begin_pose, const ros::Time& begin_time, const ros::Time& end_time)
+geometry_msgs::PoseStamped PoseCorrector::calc(const geometry_msgs::PoseStamped& begin_pose, const ros::Time& begin_time, const ros::Time& end_time)
 {  
   geometry_msgs::PoseStamped end_pose;
   double x = 0,y = 0,z = 0;
@@ -126,19 +129,19 @@ geometry_msgs::PoseStamped PoseCorrectorBase::calc(const geometry_msgs::PoseStam
   tf::quaternionMsgToTF(begin_pose.pose.orientation, orientation);
   tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
 
-  auto merged_array = merge_base_ptr_->mergeQueue();
+  auto combined_array = combine_sub_base_ptr_->getCombinedArray();
 
-  for(auto it = std::begin(merged_array); it != std::end(merged_array); ++it)
+  for(auto it = std::begin(combined_array); it != std::end(combined_array); ++it)
   {
-    if(it != std::begin(merged_array) && it->header.stamp > end_time)
+    if(it != std::begin(combined_array) && it->header.stamp > end_time)
       break;
 
-    const auto it2 = (it != std::begin(merged_array) && it+1 != std::end(merged_array)) ? it+1 : it;
-    if(it+1 != std::end(merged_array) && it2->header.stamp < begin_time)
+    const auto it2 = (it != std::begin(combined_array) && it+1 != std::end(combined_array)) ? it+1 : it;
+    if(it+1 != std::end(combined_array) && it2->header.stamp < begin_time)
       continue;
 
-    const ros::Time previous_time = (it != std::begin(merged_array) && it->header.stamp > begin_time) ? it->header.stamp : begin_time;
-    const ros::Time current_time  = (it+1 != std::end(merged_array) && it2->header.stamp < end_time) ? it2->header.stamp : end_time;
+    const ros::Time previous_time = (it != std::begin(combined_array) && it->header.stamp > begin_time) ? it->header.stamp : begin_time;
+    const ros::Time current_time  = (it+1 != std::end(combined_array) && it2->header.stamp < end_time) ? it2->header.stamp : end_time;
 
     std::cout << std::fmod(it->header.stamp.toSec(), 100.0) 
        << " " << std::fmod(previous_time.toSec(), 100.0)

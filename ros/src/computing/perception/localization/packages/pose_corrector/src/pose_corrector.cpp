@@ -30,8 +30,10 @@
 
 #include <ros/ros.h>
 
-#include "pose_corrector/merge_imu_odom.h"
-#include "pose_corrector/pose_corrector_base.h"
+#include <boost/shared_ptr.hpp>
+
+#include "pose_corrector/combine_imu_odom.h"
+#include "pose_corrector/pose_corrector.h"
 
 int main(int argc, char** argv)
 {
@@ -39,8 +41,8 @@ int main(int argc, char** argv)
   ros::NodeHandle nh;
   ros::NodeHandle private_nh("~");
 
-  boost::shared_ptr<const MergeImuOdom> merge_imu_odom = boost::make_shared<const MergeImuOdom>(nh, private_nh, "/imu_raw", "/odom_pose");
-  PoseCorrectorBase pose_corrector_base(nh, private_nh, merge_imu_odom);
+  boost::shared_ptr<const CombineImuOdom> combine_imu_odom = boost::make_shared<const CombineImuOdom>(nh, private_nh, "/imu_raw", "/odom_pose");
+  PoseCorrector pose_corrector(nh, private_nh, combine_imu_odom);
 
   ros::spin();
   return 0;

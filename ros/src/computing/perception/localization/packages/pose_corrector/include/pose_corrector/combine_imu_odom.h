@@ -28,41 +28,44 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef MERGE_IMU_ODOM_H
-#define MERGE_IMU_ODOM_H
+#ifndef COMBINE_IMU_ODOM_H
+#define COMBINE_IMU_ODOM_H
 
 #include <string>
 
 #include <ros/ros.h>
 #include <geometry_msgs/TwistStamped.h>
 
-#include "pose_corrector/merge_base_two.h"
-#include "pose_corrector/sub_imu.h"
-#include "pose_corrector/sub_odom.h"
+#include <boost/shared_ptr.hpp>
 
-class MergeImuOdom : public MergeBaseTwo
+#include "pose_corrector/combine_sub_two.h"
+
+class CombineImuOdom : public CombineSubTwo
 {
   public:
-    MergeImuOdom(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, const std::string imu_topic_name, const std::string odom_topic_name);
-    ~MergeImuOdom() override;
-  //private:
-    geometry_msgs::TwistStamped mergeData(const ros::Time time, const geometry_msgs::TwistStamped& data1, const geometry_msgs::TwistStamped& data2) const override
+    CombineImuOdom(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, const std::string imu_topic_name, const std::string odom_topic_name);
+    ~CombineImuOdom() override;
+  private:
+    geometry_msgs::TwistStamped getCombinedData(const geometry_msgs::TwistStamped& imu_data, const geometry_msgs::TwistStamped& odom_data) const override
     {
       geometry_msgs::TwistStamped tmp;
-      tmp.header.stamp = time;
-      tmp.twist.linear = data2.twist.linear;
-      tmp.twist.angular = data1.twist.angular;
+      tmp.twist.linear = odom_data.twist.linear;
+      tmp.twist.angular = imu_data.twist.angular;
       return tmp;
     };
     
 };
 
-MergeImuOdom::MergeImuOdom(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, const std::string imu_topic_name, const std::string odom_topic_name) :
-   MergeBaseTwo(boost::make_shared<const SubImu>(nh, private_nh, imu_topic_name), boost::make_shared<const SubOdom>(nh, private_nh, odom_topic_name))
+//Move cpp
+#include "pose_corrector/sub_imu.h"
+#include "pose_corrector/sub_odom.h"
+
+CombineImuOdom::CombineImuOdom(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh, const std::string imu_topic_name, const std::string odom_topic_name) :
+   CombineSubTwo(boost::make_shared<const SubImu>(nh, private_nh, imu_topic_name), boost::make_shared<const SubOdom>(nh, private_nh, odom_topic_name))
 {
 }
 
-MergeImuOdom::~MergeImuOdom()
+CombineImuOdom::~CombineImuOdom()
 {
 }
 
