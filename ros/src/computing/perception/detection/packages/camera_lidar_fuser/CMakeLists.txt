@@ -33,6 +33,16 @@ endif()
 FIND_PACKAGE(CUDA)
 FIND_PACKAGE(OpenCV REQUIRED)
 
+if ("${ROS_VERSION}" MATCHES "(indigo|jade)")
+	catkin_package(CATKIN_DEPENDS 
+	  std_msgs geometry_msgs autoware_msgs
+	)
+elseif ("${ROS_VERSION}" MATCHES "(kinetic)")
+	catkin_package(CATKIN_DEPENDS
+	  std_msgs geometry_msgs autoware_msgs
+	)
+endif()
+
 EXECUTE_PROCESS(
   COMMAND uname -m
   OUTPUT_VARIABLE ARCHITECTURE
@@ -52,6 +62,10 @@ INCLUDE_DIRECTORIES(
 
 add_executable(camera_lidar_fuser 
 	src/camera_lidar_fuser.cpp
+)
+
+add_dependencies(camera_lidar_fuser
+	${catkin_EXPORTED_TARGETS}
 )
 
 target_link_libraries( camera_lidar_fuser PRIVATE

@@ -10,10 +10,15 @@
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/PointCloud2.h>
 
-#include "autoware_msgs/CloudCluster.h"
-#include "autoware_msgs/CloudClusterArray.h"
-#include "autoware_msgs/DetectedObject.h"
-#include "autoware_msgs/DetectedObjectArray.h"
+#include <message_filters/subscriber.h>
+#include <message_filters/synchronizer.h>
+#include <message_filters/time_synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
+
+#include <autoware_msgs/CloudCluster.h>
+#include <autoware_msgs/CloudClusterArray.h>
+#include <autoware_msgs/DetectedObject.h>
+#include <autoware_msgs/DetectedObjectArray.h>
 
 //TODO:
 //1. Sync:
@@ -63,7 +68,7 @@ public:
 		car_detection_sub_ = new message_filters::Subscriber<autoware_msgs::DetectedObjectArray>(node_handle_, "/obj_car/image_obj", 10);
 		person_detection_sub_ = new message_filters::Subscriber<autoware_msgs::DetectedObjectArray>(node_handle_, "/obj_person/image_obj", 10);
 
-		sync_ = new message_filters::Synchronizer<FusionSyncPolicy>(TrackerS);
+		sync_->reset( new message_filters::Synchronizer<FusionSyncPolicy>(TrackerS);
 
 		sync_->registerCallback(boost::bind(&CameraLidarFuser::SyncedCallback, this, _1, _2, _3));
 
