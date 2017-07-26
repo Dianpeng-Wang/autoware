@@ -17,6 +17,8 @@ if ("${ROS_VERSION}" MATCHES "(indigo|jade)")
 	  std_msgs
 	  autoware_msgs
 	  tf
+	  jsk_recognition_msgs
+	  jsk_rviz_plugins
 	)
 elseif ("${ROS_VERSION}" MATCHES "(kinetic)")
 	FIND_PACKAGE(catkin REQUIRED COMPONENTS
@@ -27,6 +29,8 @@ elseif ("${ROS_VERSION}" MATCHES "(kinetic)")
 	  autoware_msgs
 	  sensor_msgs
 	  tf
+	  jsk_recognition_msgs
+	  jsk_rviz_plugins
 )
 endif()
 
