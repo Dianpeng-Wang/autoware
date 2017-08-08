@@ -10,6 +10,8 @@
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/Image.h>
+#include <sensor_msgs/image_encodings.h>
 
 #include <message_filters/subscriber.h>
 #include <message_filters/synchronizer.h>
@@ -29,6 +31,8 @@
 #include <jsk_rviz_plugins/PictogramArray.h>
 
 #include <opencv2/opencv.hpp>
+
+#include <cv_bridge/cv_bridge.h>
 
 
 //TODO:
@@ -61,63 +65,62 @@ private:
 
 	typedef message_filters::sync_policies::ApproximateTime<autoware_msgs::CloudClusterArray,
 															autoware_msgs::image_obj,
-															autoware_msgs::image_obj> FusionSyncPolicy;
+															autoware_msgs::image_obj,
+															sensor_msgs::Image> FusionSyncPolicy;
 
 	message_filters::Subscriber<autoware_msgs::CloudClusterArray> cloud_clusters_sub_;
 	message_filters::Subscriber<autoware_msgs::image_obj> car_detection_sub_;
 	message_filters::Subscriber<autoware_msgs::image_obj> person_detection_sub_;
+	message_filters::Subscriber<sensor_msgs::Image> image_sub_;
 
 	message_filters::Synchronizer<FusionSyncPolicy> fusion_sync_;
 
 	bool project_point(const cv::Point3d& in_point_3d,
 							cv::Point_<int>& out_point_2d)
 	{
-		//project point
-		std::cout <<"Projecting"<< std::endl;
-		cv::Mat projected_point(1, 3, CV_64F);
-		projected_point = cv::Mat(in_point_3d) * rotation_matrix_ + translation_matrix_;
-		std::cout <<"End Projecting"<< std::endl;
+		cv::Mat rotation_matrix = camera_extrinsic_matrix_(cv::Rect(0,0,3,3)).t();
+		cv::Mat translation_matrix = -rotation_matrix*(camera_extrinsic_matrix_(cv::Rect(3,0,1,3)));
 
-		//project only points in front of the camera
-		if (projected_point.at<double>(2) <= 2.5)
-		{
+		cv::Mat projected_point(1, 3, CV_64F);
+		projected_point.at<double>(0) = double(in_point_3d.x);
+		projected_point.at<double>(1) = double(in_point_3d.y);
+		projected_point.at<double>(2) = double(in_point_3d.z);
+		projected_point = projected_point * rotation_matrix.t() + translation_matrix.t();
+
+		if (projected_point.at<double>(2) <= 2.5) {
 			return false;
 		}
 
-		double tmpx = projected_point.at<double>(0) / projected_point.at<double>(2);
-		double tmpy = projected_point.at<double>(1) / projected_point.at<double>(2);
-
-		//apply distortion correction according to intrinsic params
-		double r2 = tmpx * tmpx + tmpy * tmpy;
-		double tmpdist = 1 + camera_distortion_coeff_.at<double>(0) * r2
+		double perspective_x = projected_point.at<double>(0) / projected_point.at<double>(2);
+		double perspective_y = projected_point.at<double>(1)/projected_point.at<double>(2);
+		double r2 = perspective_x * perspective_x + perspective_y * perspective_y;
+		double tmp_dist = 1 + camera_distortion_coeff_.at<double>(0) * r2
 			+ camera_distortion_coeff_.at<double>(1) * r2 * r2
 			+ camera_distortion_coeff_.at<double>(4) * r2 * r2 * r2;
 
-		cv::Point2d corrected_point;
-		corrected_point.x = tmpx * tmpdist
-			+ 2 * camera_distortion_coeff_.at<double>(2) * tmpx * tmpy
-			+ camera_distortion_coeff_.at<double>(3) * (r2 + 2 * tmpx * tmpx);
-		corrected_point.y = tmpy * tmpdist
-			+ camera_distortion_coeff_.at<double>(2) * (r2 + 2 * tmpy * tmpy)
-			+ 2 * camera_distortion_coeff_.at<double>(3) * tmpx * tmpy;
+		cv::Point2d imagepoint;
+		imagepoint.x = perspective_x * tmp_dist
+			+ 2 * camera_distortion_coeff_.at<double>(2) * perspective_x * perspective_y
+			+ camera_distortion_coeff_.at<double>(3) * (r2 + 2 * perspective_x * perspective_x);
+		imagepoint.y = perspective_y * tmp_dist
+			+ camera_distortion_coeff_.at<double>(2) * (r2 + 2 * perspective_y * perspective_y)
+			+ 2 * camera_distortion_coeff_.at<double>(3) * perspective_x * perspective_y;
+		imagepoint.x = camera_intrinsic_matrix_.at<double>(0,0) * imagepoint.x + camera_intrinsic_matrix_.at<double>(0,2);
+		imagepoint.y = camera_intrinsic_matrix_.at<double>(1,1) * imagepoint.y + camera_intrinsic_matrix_.at<double>(1,2);
 
-		corrected_point.x = camera_distortion_coeff_.at<double>(0,0) * corrected_point.x + camera_intrinsic_matrix_.at<double>(0,2);
-		corrected_point.y = camera_distortion_coeff_.at<double>(1,1) * corrected_point.y + camera_intrinsic_matrix_.at<double>(1,2);
-
-		int image_px = int(corrected_point.x + 0.5);
-		int image_py = int(corrected_point.y + 0.5);
-		//check point falls inside the image
-		if ( image_px >= 0
+		int image_px = int(imagepoint.x + 0.5);
+		int image_py = int(imagepoint.y + 0.5);
+		if(image_px >= 0
 			&& image_px < camera_image_size.width
 			&& image_py >= 0
-			&& image_py < camera_image_size.height
-			)
+			&& image_py < camera_image_size.height)
 		{
 			out_point_2d.x = image_px;
 			out_point_2d.y = image_py;
 			return true;
 		}
 		return false;
+
 	}
 
 	void project_points(const std::vector<cv::Point3d>& in_points_3d,
@@ -139,10 +142,10 @@ private:
 
 public:
 	void SyncedCallback(const autoware_msgs::CloudClusterArray::ConstPtr& in_lidar_detections,
-									const autoware_msgs::image_obj::ConstPtr& in_car_image_detections,
-									const autoware_msgs::image_obj::ConstPtr& in_person_image_detections)
+							const autoware_msgs::image_obj::ConstPtr& in_car_image_detections,
+							const autoware_msgs::image_obj::ConstPtr& in_person_image_detections,
+							const sensor_msgs::Image::ConstPtr& in_image_raw)
 	{
-		ROS_INFO("Sync OK");
 		if (camera_extrinsic_matrix_.empty() || camera_intrinsic_matrix_.empty() || camera_distortion_coeff_.empty()
 				|| camera_image_size.height == 0 || camera_image_size.width == 0
 			)
@@ -152,7 +155,11 @@ public:
 			return;
 		}
 
-		cv::Mat tmp(camera_image_size.height, camera_image_size.width, CV_8UC1, 0);
+		cv_bridge::CvImagePtr cv_image = cv_bridge::toCvCopy(in_image_raw, sensor_msgs::image_encodings::BGR8);
+		cv::Mat image_raw_mat = cv_image->image;
+
+		//cv::Mat tmp(camera_image_size.height, camera_image_size.width, CV_8UC3, cv::Scalar(0,0,0));
+		cv::Mat tmp = image_raw_mat.clone();
 
 		for (std::size_t i = 0; i < in_lidar_detections->clusters.size(); i++)
 		{
@@ -161,18 +168,25 @@ public:
 			autoware_msgs::CloudCluster current_cluster = in_lidar_detections->clusters[i];
 
 			cv::Point_<int> min_point, max_point;
+			bool min_ok, max_ok;
 
-			project_point(cv::Point3d(current_cluster.min_point.point.x,
+			min_ok = project_point(cv::Point3d(current_cluster.min_point.point.x,
 										current_cluster.min_point.point.y,
 										current_cluster.min_point.point.z),
 							min_point);
 
-			project_point(cv::Point3d(current_cluster.max_point.point.x,
+			max_ok = project_point(cv::Point3d(current_cluster.max_point.point.x,
 										current_cluster.max_point.point.y,
 										current_cluster.max_point.point.z),
 							max_point);
 
-			cv::rectangle(tmp, min_point, max_point, cv::Scalar(255));
+			if (min_ok && max_ok
+					&& min_point != max_point)
+			{
+				cv::rectangle(tmp, min_point, max_point, cv::Scalar(0,0,255), 2);
+				//cv::circle(tmp, min_point, 2, cv::Scalar(255,0,0));
+				//cv::circle(tmp, max_point, 2, cv::Scalar(0,255,0));
+			}
 
 			/*bounding_box_face.push_back(cv::Point3d(current_cluster.min_point.point.x,
 													current_cluster.min_point.point.y,
@@ -233,10 +247,11 @@ public:
 		cloud_clusters_sub_(*node_handle_, "cloud_clusters" , 1),
 		car_detection_sub_(*node_handle_, "obj_car/image_obj" , 1),
 		person_detection_sub_(*node_handle_, "obj_person/image_obj" , 1),
-		fusion_sync_(FusionSyncPolicy(10), cloud_clusters_sub_, car_detection_sub_, person_detection_sub_)
+		image_sub_(*node_handle_, "image_raw" , 1),
+		fusion_sync_(FusionSyncPolicy(10), cloud_clusters_sub_, car_detection_sub_, person_detection_sub_, image_sub_)
 	{
 
-		fusion_sync_.registerCallback(boost::bind(&CameraLidarFuser::SyncedCallback, this, _1, _2, _3));
+		fusion_sync_.registerCallback(boost::bind(&CameraLidarFuser::SyncedCallback, this, _1, _2, _3, _4));
 
 		extrinsic_sub_ = in_handle->subscribe("projection_matrix", 1, &CameraLidarFuser::ExtrinsicMatrixCallback, this);
 		intrinsic_sub_ = in_handle->subscribe("camera/camera_info", 1, &CameraLidarFuser::IntrinsicMatrixCallback, this);
@@ -256,7 +271,7 @@ int main(int argc, char **argv)
 	CameraLidarFuser fusion_node(&node_handle);
 
 	ros::Rate loop_rate(10);
-	ROS_INFO("camera_lidar_fuser: Waiting for /cloud_clusters, /obj_car/image_obj, /obj_person/image_obj, "
+	ROS_INFO("camera_lidar_fuser: Waiting for /image_raw, /cloud_clusters, /obj_car/image_obj, /obj_person/image_obj, "
 			"/camera/camera_info and /projection_matrix ");
 	while(ros::ok())
 	{
