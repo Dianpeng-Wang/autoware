@@ -18,8 +18,8 @@ from jsk_recognition_msgs.msg import BoundingBoxArray
 from jsk_rviz_plugins.msg import Pictogram
 from jsk_rviz_plugins.msg import PictogramArray
 #from calibration_camera_lidar.msg import projection_matrix
-from cv_tracker.msg import image_obj
-from cv_tracker.msg import image_rect
+from autoware_msgs.msg import image_obj
+from autoware_msgs.msg import image_rect
 
 import os.path #Autoware
 from numpy import dtype
@@ -27,9 +27,11 @@ import std_msgs
 
 kitti_data = None
 auto_boxes = None
+person_boxes = None
 
 pub = None
-pub_boxes = None
+pub_car_boxes = None
+pub_person_boxes = None
 
 pictogram_texts = None
 pub_pictograms = None
@@ -59,8 +61,9 @@ def readXML(file):
 	item = root.findall('./tracklets/item')
 
 	d = {}
-	boxes_2d = {}
+	car_boxes_2d = {}
 	pictograms = {}
+	person_boxes_2d = {}
 
 	for i, v in enumerate(item):
 		h = float(v.find('h').text)
@@ -143,7 +146,10 @@ def readXML(file):
 			bbox_2d = image_rect()
 			bbox_2d.score = -10.0
 			
-			if ( (label == 'Car' or label=='Truck' or label=='Van') and np.any(corner_3d[2,:]>=0.5)) and (np.any(orientation_3d[2,:]>=0.5) and x1>=0 and x2>=0 and y1>0 and y2>=0 and occlusion <2):				
+			empty_bbox_2d = image_rect()
+			empty_bbox_2d .score = -10.0
+			
+			if ( (label == 'Car' or label=='Truck' or label=='Van' or label == 'Pedestrian' or label=='Cyclist') and np.any(corner_3d[2,:]>=0.5)) and (np.any(orientation_3d[2,:]>=0.5) and x1>=0 and x2>=0 and y1>0 and y2>=0 and occlusion <2):				
 				bbox_2d.x = x1
 				bbox_2d.y = y1
 				bbox_2d.width = x2-x1
@@ -152,14 +158,31 @@ def readXML(file):
 
 			if d.has_key(frame + j) == True:
 				d[frame + j].append(b)
-				boxes_2d[frame + j].append(bbox_2d)
 				pictograms[frame + j].append(picto_text)
+				if (label == 'Car' or label=='Truck' or label=='Van'):
+					car_boxes_2d[frame + j].append(bbox_2d)
+					person_boxes_2d[frame +j].append(empty_bbox_2d)
+				elif (label == 'Pedestrian' or label=='Cyclist'):
+					person_boxes_2d[frame + j].append(bbox_2d)
+					car_boxes_2d[frame + j].append(empty_bbox_2d)
+				else:
+					car_boxes_2d[frame + j].append(empty_bbox_2d)
+					person_boxes_2d[frame +j].append(empty_bbox_2d)
+				
 			else:
 				d[frame + j] = [b]
-				boxes_2d[frame + j] = [bbox_2d]
 				pictograms[frame + j]= [picto_text]
+				if (label == 'Car' or label=='Truck' or label=='Van'):
+					car_boxes_2d[frame + j] = [bbox_2d]
+					person_boxes_2d[frame +j] = [empty_bbox_2d]
+				elif (label == 'Pedestrian' or label=='Cyclist'):
+					person_boxes_2d[frame + j] = [bbox_2d]
+					car_boxes_2d[frame +j] = [empty_bbox_2d]
+				else:
+					car_boxes_2d[frame + j] = [empty_bbox_2d]
+					person_boxes_2d[frame +j] = [empty_bbox_2d]
 
-	return d, boxes_2d, pictograms
+	return d, car_boxes_2d, pictograms, person_boxes_2d
 
 def callback(data):
 	header = data.header
@@ -168,9 +191,13 @@ def callback(data):
 	boxes = BoundingBoxArray() #3D Boxes with JSK
 	boxes.header = header
 	
-	rects = image_obj() #Rects Autoware
-	rects.header = header
-	rects.type = "car"
+	car_rects = image_obj() #Rects Autoware
+	car_rects.header = header
+	car_rects.type = "car"
+	
+	person_rects = image_obj() #Rects Autoware
+	person_rects.header = header
+	person_rects.type = "person"
 	
 	texts = PictogramArray() #Labels with JSK
 	texts.header = header
@@ -182,7 +209,11 @@ def callback(data):
 
 	if auto_boxes.has_key(frame) == True:
 		for rect in auto_boxes[frame]:
-			rects.obj.append(rect)
+			car_rects.obj.append(rect)
+	
+	if person_boxes.has_key(frame) == True:
+		for rect in person_boxes[frame]:
+			person_rects.obj.append(rect)
 	
 	if pictogram_texts.has_key(frame) == True:
 		for txt in pictogram_texts[frame]:
@@ -190,7 +221,8 @@ def callback(data):
 			texts.pictograms.append(txt)
 
 	pub.publish(boxes)
-	pub_boxes.publish(rects)
+	pub_car_boxes.publish(car_rects)
+	pub_person_boxes.publish(person_rects)
 	pub_pictograms.publish(texts)
 
 def parseCalibrationFile(path):
@@ -227,11 +259,12 @@ def publishProjectionMatrix(pathToCalibrationFile):
 	#projection_publisher.publish(projection_message)
 
 def run():
-	global pub, pub_boxes, pub_pictograms, pub_points_clusters
+	global pub, pub_car_boxes, pub_pictograms, pub_person_boxes, pub_points_clusters
 	global projection_publisher
 	rospy.init_node('kitti_box_publisher', anonymous=True)
 	pub = rospy.Publisher('kitti_box', BoundingBoxArray, queue_size=1)
-	pub_boxes = rospy.Publisher('/obj_car/image_obj', image_obj, queue_size=1)
+	pub_car_boxes = rospy.Publisher('/obj_car/image_obj', image_obj, queue_size=1)
+	pub_person_boxes = rospy.Publisher('/obj_person/image_obj', image_obj, queue_size=1)
 	pub_pictograms = rospy.Publisher('kitti_3d_labels', PictogramArray, queue_size=1)
 	pub_points_clusters = rospy.Publisher('points_cluster', PointCloud2, queue_size=1)
 	#projection_publisher = rospy.Publisher('projection_matrix', projection_matrix, queue_size=1, latch=True)
@@ -246,7 +279,7 @@ if __name__ == "__main__":
 	if len(argv) > 1:	
 		xml_file = argv[1]
 		publishProjectionMatrix(os.path.dirname(os.path.dirname(xml_file))) #Get parent directory
-		kitti_data, auto_boxes, pictogram_texts = readXML(xml_file)
+		kitti_data, auto_boxes, pictogram_texts, person_boxes = readXML(xml_file)
 		run()
 
 	else :
