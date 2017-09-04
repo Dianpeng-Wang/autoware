@@ -37,8 +37,11 @@ target_link_libraries(space_filter ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 find_package(PCL 1.7 REQUIRED)
 add_definitions(${PCL_DEFINITIONS})
 
-add_executable(ground_filter 
+add_executable(ground_filter
 	nodes/ground_filter/ground_filter.cpp
+)
+add_executable(fusion_filter
+	nodes/fusion_filter/fusion_filter.cpp
 )
 
 target_include_directories(ground_filter PRIVATE
@@ -49,4 +52,9 @@ target_link_libraries(ground_filter
 	${catkin_LIBRARIES}
 	${PCL_LIBRARIES}
 	${Qt5Core_LIBRARIES}
+)
+
+target_link_libraries(fusion_filter
+	${catkin_LIBRARIES}
+	${PCL_LIBRARIES}
 )
