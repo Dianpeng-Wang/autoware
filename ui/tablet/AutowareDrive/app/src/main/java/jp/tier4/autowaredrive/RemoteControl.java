@@ -19,6 +19,7 @@ import android.widget.CompoundButton;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
+import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
@@ -30,8 +31,6 @@ import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
-
-import jp.tier4.autowaredrive.ui.CanInfo;
 
 /**
  * Created by yuki.iida on 2017/06/20.
@@ -46,7 +45,7 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
     static private int AUTO_MODE = 3;
     static private int EMERGENCY_MODE = 1;
     static private int NONEMERGENCY_MODE = 0;
-    static private int STEERING_MAX_VAL = 720;
+    static private int STEERING_MAX_VAL = 600;
     static private float STEERING_ANGLE_RATION = 1 / 1;
 
     private Context mContext;
@@ -63,7 +62,7 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
 
     /*** UI ***/
     private ProgressBar accelBar, brakeBar;
-    private Button accelBrakeButton;
+    private Button accelButton, brakeButton;
     private ToggleButton remoteControlButton, emergencyButton;
     private int displayHeight, displayWidth;
     private SeekBar steeringBar;
@@ -78,6 +77,13 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
     private float baseTouchPointy = 0;
     private double currentSteeringAngle = 0;
 
+    /*** VehicleInfo ***/
+    private TextView spped_label;
+    private TextView rpm_label;
+    private TextView mode_label;
+    private TextView fps_label;
+    private TextView gear_preview;
+
     /*** Control Comand ***/
     private ControlComand mControlComand;
     private CanInfo mCanInfo;
@@ -88,7 +94,7 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_remote_control);
+        setContentView(R.layout.activity_remote_control2);
 
         mControlComand = ControlComand.getInstance();
         mCanInfo = CanInfo.getInstance();
@@ -103,7 +109,7 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
             this.mVehicleId = bundle.getInt("vehicle_id");
             this.mqttPublishTopic = TOPIC + mVehicleId + "/remote_cmd";
             this.mqttSubscribeTopic = TOPIC + mVehicleId + "/can_info";
-            this.mqttId = CLIENTID_HEAD + mVehicleId;
+            this.mqttId = CLIENTID_HEAD + mVehicleId + "_" + String.valueOf(System.currentTimeMillis());
 
             Log.i("RemoteControl", this.mqttBrokerURI + ", " + this.mqttPublishTopic + ", " + this.mqttId);
         }
@@ -115,6 +121,7 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
             @Override
             public void connectionLost(Throwable cause) {
                 Log.i(TAG, "Connection was lost!");
+                gear_preview.setText("P");
             }
 
             @Override
@@ -122,11 +129,21 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
                 String arrivedMessage = new String(message.getPayload());
                 mCanInfo.parseCanInfo(arrivedMessage);
 
-                if(mControlComand.modeCmd != REMOTE_MODE) {
+                // Set Vehiclenfo
+                spped_label.setText("Speed: " + String.valueOf(mCanInfo.speed) + " km/h");
+                rpm_label.setText("RPM: " + String.valueOf(mCanInfo.rpm));
+                mode_label.setText("Mode: " + String.valueOf(mCanInfo.drvmode));
+                gear_preview.setText("D");
+
+                accelBar.setProgress((int) ((mCanInfo.drivepedal / 1000) * 100));
+                brakeBar.setProgress((int) (((mCanInfo.brakepedal - 225) / 3000) * 100));
+                Log.v(TAG, "VehicleInfo: " + mCanInfo.speed + ", " + mCanInfo.rpm + ", " + mCanInfo.drvmode + ", " + mCanInfo.drivepedal + ", " + mCanInfo.brakepedal);
+
+                if (mControlComand.modeCmd != REMOTE_MODE) {
                     currentSteeringAngle = mCanInfo.angle * STEERING_ANGLE_RATION;
                     setCurrentSteeringAngle(currentSteeringAngle);
-                    mControlComand.steeringCmd = (float)(0.5 + currentSteeringAngle / STEERING_MAX_VAL / 2);
-                    steeringBar.setProgress((int)(mControlComand.steeringCmd * 100));
+                    mControlComand.steeringCmd = (float) (0.5 + currentSteeringAngle / STEERING_MAX_VAL / 2);
+                    steeringBar.setProgress((int) (mControlComand.steeringCmd * 100));
                 }
             }
 
@@ -140,8 +157,10 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
         connectMqttBroker();
 
         /*** UI ***/
-        accelBrakeButton = (Button)this.findViewById(R.id.accel_brake_button);
-        accelBrakeButton.setOnTouchListener(this);
+        accelButton = (Button) this.findViewById(R.id.accel_button);
+        accelButton.setOnTouchListener(this);
+        brakeButton = (Button) this.findViewById(R.id.brake_button);
+        brakeButton.setOnTouchListener(this);
 
         steeringImageButton = (ImageButton) findViewById(R.id.steering_image_button);
 
@@ -157,22 +176,29 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
         steeringBar.setMax(100);
         steeringBar.setProgress(50);
 
-        WindowManager wm = (WindowManager)getSystemService(WINDOW_SERVICE);
+        WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
         Display disp = wm.getDefaultDisplay();
         Point size = new Point();
         disp.getSize(size);
         displayWidth = size.x;
-        displayHeight = size.y - getStatusBarHeight();
+        displayHeight = size.y - getStatusBarHeight() * 8 / 9;
 
-        remoteControlButton = (ToggleButton)findViewById(R.id.remote_control_button);
+        remoteControlButton = (ToggleButton) findViewById(R.id.remote_control_button);
         remoteControlButton.setOnCheckedChangeListener(this);
 
-        emergencyButton = (ToggleButton)findViewById(R.id.emergency_button);
+        emergencyButton = (ToggleButton) findViewById(R.id.emergency_button);
         emergencyButton.setOnCheckedChangeListener(this);
 
         mControlComandUploader = new ControlComandUploader(mqttAndroidClient, mqttConnectOptions, mqttPublishTopic);
 
         setCurrentSteeringAngle(currentSteeringAngle);
+
+        /*** VehicleInfo ***/
+        spped_label = (TextView) findViewById(R.id.speed_label);
+        rpm_label = (TextView) findViewById(R.id.rpm_label);
+        mode_label = (TextView) findViewById(R.id.mode_label);
+        fps_label = (TextView) findViewById(R.id.fps_label);
+        gear_preview = (TextView) findViewById(R.id.gear_preview);
 
     }
 
@@ -268,26 +294,34 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
     @Override
     public boolean onTouch(View v, MotionEvent event) {
         // Acc/Brake
-        if(v == accelBrakeButton) {
+        if(v == accelButton || v == brakeButton) {
             if(event.getAction() == MotionEvent.ACTION_DOWN ||
                     event.getAction() == MotionEvent.ACTION_MOVE) {
                 float rate = 100 - event.getY() / displayHeight * 100;
                 if(rate >= 50) {
-                    mControlComand.accelCmd = (rate - 50) / 50;
-                    if(mControlComand.accelCmd > 1)
-                        mControlComand.accelCmd = (float)1.0;
-                    mControlComand.brakeCmd = 0;
+                    if(v == accelButton) {
+                        mControlComand.accelCmd = (rate - 50) / 50;
+                        if(mControlComand.accelCmd > 1)
+                            mControlComand.accelCmd = (float)1.0;
+                        mControlComand.brakeCmd = 0;
+                    }
+                    else if(v == brakeButton) {
+                        mControlComand.brakeCmd = (rate - 50) / 50;
+                        if(mControlComand.brakeCmd > 1)
+                            mControlComand.brakeCmd = (float)1.0;
+                        mControlComand.accelCmd = 0;
+                    }
                 }
                 else {
                     mControlComand.accelCmd = 0;
-                    mControlComand.brakeCmd = (50 - rate) / 50;
-                    if(mControlComand.accelCmd > 1)
-                        mControlComand.accelCmd = (float)1.0;
+                    mControlComand.brakeCmd = 0;
                 }
-            }
-            else {
-//                mControlComand.accelCmd = 0;
-                mControlComand.brakeCmd = 0;
+//                else {
+//                    mControlComand.accelCmd = 0;
+//                    mControlComand.brakeCmd = (50 - rate) / 50;
+//                    if(mControlComand.accelCmd > 1)
+//                        mControlComand.accelCmd = (float)1.0;
+//                }
             }
 
             accelBar.setProgress(Math.round(mControlComand.accelCmd * 100));
@@ -309,8 +343,6 @@ public class RemoteControl extends AppCompatActivity implements View.OnTouchList
                 else if (currentSteeringAngle < -STEERING_MAX_VAL) {
                     currentSteeringAngle = -STEERING_MAX_VAL;
                 }
-
-                Log.i(TAG, "CurrentSteeringAngle: " + currentSteeringAngle);
 
                 if(-STEERING_MAX_VAL < currentSteeringAngle && currentSteeringAngle < STEERING_MAX_VAL) {
                     setCurrentSteeringAngle(currentSteeringAngle);

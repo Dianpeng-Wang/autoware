@@ -17,4 +17,12 @@
     <string name="brake_label">Brake</string>
     <string name="accel_brake_label">Accele/Brake</string>
     <string name="steering_label">Steering</string>
+    <string name="gear_label">Gear</string>
+    <string name="gear_preview">P</string>
+
+    <string name="vehicle_info_label">Vehicle Info</string>
+    <string name="spped_label">Speed: 0 km/h</string>
+    <string name="rpm_label">RPM: 0</string>
+    <string name="mode_label">Mode: Auto</string>
+    <string name="fps_label">FPS: - fps</string>
 </resources>

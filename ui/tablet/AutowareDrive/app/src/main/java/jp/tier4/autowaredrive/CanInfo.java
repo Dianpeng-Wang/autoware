@@ -1,4 +1,4 @@
-package jp.tier4.autowaredrive.ui;
+package jp.tier4.autowaredrive;
 
 /**
  * Created by yuki.iida on 2017/06/28.

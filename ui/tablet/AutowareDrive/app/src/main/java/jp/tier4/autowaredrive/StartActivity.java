@@ -1,22 +1,9 @@
 package jp.tier4.autowaredrive;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.annotation.TargetApi;
-import android.app.LoaderManager.LoaderCallbacks;
-import android.content.CursorLoader;
 import android.content.Intent;
-import android.content.Loader;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
-import android.database.Cursor;
-import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
-import android.provider.ContactsContract;
-import android.support.annotation.NonNull;
-import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -40,8 +27,8 @@ import static android.Manifest.permission.READ_CONTACTS;
 public class StartActivity extends AppCompatActivity {
     private static final String TAG = "StartActivity";
 
-    private static final String MQTT_ADDRESS = "13.73.18.118";
-    private static final int MQTT_PORT = 80;
+    private static final String MQTT_ADDRESS = "192.168.1.1";
+    private static final int MQTT_PORT = 1883;
     private static final int VEHICLE_ID = 1;
 
     // UI references.
